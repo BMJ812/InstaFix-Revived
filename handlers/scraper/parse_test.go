@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -143,5 +144,43 @@ func TestPublicVideoRefreshNegativeCache(t *testing.T) {
 	}
 	if shouldTryPublicVideoRefresh("DaD4t0NN2zJ") {
 		t.Fatal("should not retry public video refresh during cooldown")
+	}
+}
+
+func TestEarliestSignedMediaExpiry(t *testing.T) {
+	first := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)
+	second := first.Add(time.Hour)
+	item := &InstaData{Medias: []Media{
+		{TypeName: "GraphVideo", URL: "https://scontent.cdninstagram.com/video.mp4?oe=" + strconv.FormatInt(second.Unix(), 16)},
+		{TypeName: "GraphVideo", URL: "https://scontent.cdninstagram.com/video2.mp4?oe=" + strconv.FormatInt(first.Unix(), 16)},
+	}}
+
+	got, ok := earliestSignedMediaExpiry(item)
+	if !ok {
+		t.Fatal("expected signed media expiry")
+	}
+	if !got.Equal(first) {
+		t.Fatalf("expiry = %s, want %s", got, first)
+	}
+}
+
+func TestAllowedMediaURL(t *testing.T) {
+	for _, raw := range []string{
+		"https://scontent.cdninstagram.com/video.mp4",
+		"https://scontent-fra3-2.xx.fbcdn.net/video.mp4",
+		"https://www.instagram.com/media.mp4",
+	} {
+		if !IsAllowedMediaURL(raw) {
+			t.Fatalf("expected allowed media URL: %s", raw)
+		}
+	}
+	for _, raw := range []string{
+		"http://scontent.cdninstagram.com/video.mp4",
+		"https://cdninstagram.com.example.test/video.mp4",
+		"https://127.0.0.1/video.mp4",
+	} {
+		if IsAllowedMediaURL(raw) {
+			t.Fatalf("expected blocked media URL: %s", raw)
+		}
 	}
 }

@@ -131,6 +131,7 @@ func main() {
 	r.Head("/videos/{postID}/{mediaNum}", handlers.Videos)
 	r.Get("/offload/{postID}/{mediaNum}", handlers.Offload)
 	r.Head("/offload/{postID}/{mediaNum}", handlers.Offload)
+	r.Get("/player/{postID}/{mediaNum}", handlers.Player)
 	r.Get("/grid/{postID}", handlers.Grid)
 	r.Get("/fallback/{postID}.png", handlers.FallbackPreview)
 	r.Get("/oembed", handlers.OEmbed)

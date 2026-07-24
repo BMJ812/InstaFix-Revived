@@ -354,6 +354,64 @@ func RefreshDataFromAuthHelper(postID string) (*InstaData, error) {
 	return item, nil
 }
 
+// RefreshDataPreferVideo bypasses the normal metadata cache after a signed CDN
+// URL has failed. Public scraping is attempted first; the optional authenticated
+// helper remains a last resort.
+func RefreshDataPreferVideo(postID string) (*InstaData, error) {
+	if !validPostID(postID) {
+		return nil, errors.New("postID is not a valid Instagram post ID")
+	}
+
+	ret, err, _ := sflightScraper.Do(postID+":forced-video-refresh", func() (interface{}, error) {
+		var refreshErrors []error
+
+		item := &InstaData{PostID: postID}
+		if publicErr := item.ScrapeDataNoAuth(); publicErr == nil {
+			if item.HasVideo() {
+				if err := normalizeMediaURLs(item); err != nil {
+					refreshErrors = append(refreshErrors, err)
+				} else {
+					if err := saveDataToCache(item); err != nil {
+						slog.Warn("Failed to save forced public video refresh to cache", "postID", item.PostID, "err", err)
+					}
+					return item, nil
+				}
+			} else {
+				refreshErrors = append(refreshErrors, errors.New("public refresh returned no video"))
+			}
+		} else {
+			refreshErrors = append(refreshErrors, publicErr)
+		}
+
+		if shouldTryPublicVideoRefresh(postID) {
+			if refreshed, publicErr := RefreshVideoFromPublicGraphQL(postID); publicErr == nil && refreshed.HasVideo() {
+				return refreshed, nil
+			} else if publicErr != nil {
+				refreshErrors = append(refreshErrors, publicErr)
+			}
+		}
+
+		if AuthHelperURL != "" {
+			if refreshed, authErr := RefreshDataFromAuthHelper(postID); authErr == nil && refreshed.HasVideo() {
+				return refreshed, nil
+			} else if authErr != nil {
+				refreshErrors = append(refreshErrors, authErr)
+			} else {
+				refreshErrors = append(refreshErrors, errors.New("authenticated refresh returned no video"))
+			}
+		}
+
+		if len(refreshErrors) == 0 {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("video refresh failed: %w", errors.Join(refreshErrors...))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.(*InstaData), nil
+}
+
 func GetDataEmbedAuthFallback(postID string) (*InstaData, error) {
 	if !embedAuthFallback {
 		return nil, ErrNotFound
@@ -439,6 +497,15 @@ func saveDataToCache(item *InstaData) error {
 
 	now := time.Now()
 	freshExp := now.Add(cacheFreshTTL)
+	if signedExp, ok := earliestSignedMediaExpiry(item); ok {
+		signedFreshExp := signedExp.Add(-30 * time.Minute)
+		if signedFreshExp.Before(now) {
+			signedFreshExp = now
+		}
+		if signedFreshExp.Before(freshExp) {
+			freshExp = signedFreshExp
+		}
+	}
 	staleExp := now.Add(cacheStaleTTL)
 	if staleExp.Before(freshExp) {
 		staleExp = freshExp
@@ -472,6 +539,34 @@ func saveDataToCache(item *InstaData) error {
 		return err
 	}
 	return nil
+}
+
+func earliestSignedMediaExpiry(item *InstaData) (time.Time, bool) {
+	if item == nil {
+		return time.Time{}, false
+	}
+	var earliest time.Time
+	for _, media := range item.Medias {
+		for _, raw := range []string{media.URL, media.ThumbnailURL} {
+			u, err := url.Parse(raw)
+			if err != nil {
+				continue
+			}
+			rawExpiry := strings.TrimSpace(u.Query().Get("oe"))
+			if rawExpiry == "" {
+				continue
+			}
+			seconds, err := strconv.ParseInt(rawExpiry, 16, 64)
+			if err != nil || seconds <= 0 {
+				continue
+			}
+			expiry := time.Unix(seconds, 0)
+			if earliest.IsZero() || expiry.Before(earliest) {
+				earliest = expiry
+			}
+		}
+	}
+	return earliest, !earliest.IsZero()
 }
 
 func loadDataFromCache(postID string) (*InstaData, bool, bool, error) {
@@ -1344,6 +1439,19 @@ func presentResult(value gjson.Result) bool {
 func validMediaURL(raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	return err == nil && u.Host != "" && (u.Scheme == "http" || u.Scheme == "https")
+}
+
+// IsAllowedMediaURL restricts the streaming proxy to Instagram-owned media
+// hosts. Signed URLs may redirect between regional CDN subdomains.
+func IsAllowedMediaURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme != "https" {
+		return false
+	}
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	return host == "cdninstagram.com" || strings.HasSuffix(host, ".cdninstagram.com") ||
+		host == "fbcdn.net" || strings.HasSuffix(host, ".fbcdn.net") ||
+		host == "instagram.com" || strings.HasSuffix(host, ".instagram.com")
 }
 
 func scrapePublicOEmbed(i *InstaData) error {

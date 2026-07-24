@@ -110,7 +110,7 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If User-Agent is not bot, redirect to Instagram
-	viewsData.Title = "Instagram fixed preview"
+	viewsData.Title = "Instagram preview"
 	viewsData.URL = "https://instagram.com" + strings.Replace(r.URL.RequestURI(), "/"+mediaNumParams, "", 1)
 	viewsData.CanonicalURL = viewsData.URL
 	viewsData.Site = "Instagram preview"
@@ -191,26 +191,10 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 		sb.WriteString(strconv.Itoa(max(1, mediaNum)))
 		viewsData.ImageURL = sb.String()
 	default:
-		videoOversized := isInlineVideoOversized(media.URL)
 		videoRoute := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(max(1, mediaNum))
-		directRoute := videoRoute
-		if videoOversized {
-			viewsData.Card = "summary_large_image"
-			viewsData.OGType = "article"
-			directRoute = publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(max(1, mediaNum))
-			if viewsData.Description == "" {
-				viewsData.Description = "Video is too large for inline preview. Open on Instagram to view it."
-			} else {
-				viewsData.Description = viewsData.Description + "\n\nVideo is too large for inline preview."
-			}
-		} else {
-			if isTelegramBot(r.Header.Get("User-Agent")) {
-				viewsData.Card = "player"
-			} else {
-				viewsData.Card = "summary_large_image"
-			}
-			viewsData.OGType = "video.other"
-		}
+		viewsData.Card = "player"
+		viewsData.OGType = "video.other"
+		sb.WriteString(videoRoute)
 		viewsData.Width = media.Width
 		viewsData.Height = media.Height
 		if viewsData.Width <= 0 {
@@ -225,14 +209,8 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 			viewsData.ImageHeight = media.Height
 			viewsData.ImageAlt = strings.ReplaceAll(strings.TrimSpace(item.Caption), "\n", " ")
 		}
-		if !videoOversized {
-			viewsData.VideoURL = videoRoute
-		} else {
-			sb.WriteString(directRoute)
-			if viewsData.ImageURL == "" {
-				viewsData.ImageURL = publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(max(1, mediaNum)) + "?thumbnail=1"
-			}
-		}
+		viewsData.VideoURL = videoRoute
+		viewsData.PlayerURL = publicBaseURL + "/player/" + postID + "/" + strconv.Itoa(max(1, mediaNum))
 
 		viewsData.OEmbedURL = scheme + "://" + r.Host + "/oembed?text=" + url.QueryEscape(viewsData.Description) + "&url=" + viewsData.URL
 	}
@@ -314,7 +292,7 @@ func renderFallbackEmbed(w http.ResponseWriter, r *http.Request, viewsData *mode
 		scheme = "https"
 	}
 	publicBaseURL := scheme + "://" + r.Host
-	viewsData.Title = "Instagram fixed preview"
+	viewsData.Title = "Oops, preview unavailable"
 	viewsData.Creator = "@instagram"
 	viewsData.Card = "summary_large_image"
 	viewsData.OGType = "article"

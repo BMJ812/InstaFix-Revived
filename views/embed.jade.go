@@ -102,9 +102,9 @@ func Embed(v *model.ViewsData, wr io.Writer) {
 			buffer.WriteString(embed__3)
 		}
 	}
-	if v.VideoURL != "" && v.Card == "player" {
+	if v.VideoURL != "" && v.PlayerURL != "" && v.Card == "player" {
 		buffer.WriteString(`<meta name="twitter:player" content="`)
-		WriteEscString(v.VideoURL, buffer)
+		WriteEscString(v.PlayerURL, buffer)
 		buffer.WriteString(embed__3)
 		buffer.WriteString(embed__13)
 		WriteInt(int64(v.Width), buffer)

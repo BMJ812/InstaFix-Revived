@@ -78,7 +78,7 @@ func Videos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := scraper.GetDataPreferVideo(postID)
+	item, err := offloadGetDataPreferVideo(postID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -94,26 +94,7 @@ func Videos(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "media is not a video", http.StatusNotFound)
 		return
 	}
-	videoURL := media.URL
-	previewProxy := r.Method != http.MethodHead && shouldProxyPreviewVideo(r.Header.Get("User-Agent"))
-	if previewProxy {
-		if proxyVideoThroughAuthHelper(w, r, postID, videoURL) {
-			return
-		}
-		http.Error(w, "preview video proxy unavailable", http.StatusBadGateway)
-		return
-	}
-
-	// Redirect directly unless a generic legacy proxy was explicitly configured.
-	if strings.Contains(r.Header.Get("User-Agent"), "TelegramBot") {
-		http.Redirect(w, r, videoURL, http.StatusFound)
-		return
-	}
-	target := videoURL
-	if VideoProxyAddr != "" {
-		target = VideoProxyAddr + videoURL
-	}
-	http.Redirect(w, r, target, http.StatusFound)
+	streamOffloadVideo(w, r, postID, mediaNum, media.URL)
 }
 
 func proxyVideoThroughAuthHelper(w http.ResponseWriter, r *http.Request, postID, videoURL string) bool {

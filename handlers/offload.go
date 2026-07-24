@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
 	scraper "instafix/handlers/scraper"
 	"io"
 	"log/slog"
@@ -11,9 +13,27 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+var (
+	offloadGetDataPreferVideo     = scraper.GetDataPreferVideo
+	offloadRefreshDataPreferVideo = scraper.RefreshDataPreferVideo
+	offloadMediaURLAllowed        = scraper.IsAllowedMediaURL
+	offloadVideoClient            = &http.Client{
+		Transport: previewVideoProxyClient.Transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 3 {
+				return errors.New("video redirect limit exceeded")
+			}
+			if !scraper.IsAllowedMediaURL(req.URL.String()) {
+				return errors.New("video redirect left allowed Instagram CDN hosts")
+			}
+			return nil
+		},
+	}
+)
+
 // Offload resolves a stable local media URL to the current Instagram CDN URL.
-// This keeps embed HTML stable and gives us one place to refresh cached scrape
-// data before redirecting bots to image/video bytes.
+// Images retain the inexpensive redirect behavior. Videos are streamed so
+// preview clients never receive a redirect as their MP4 target.
 func Offload(w http.ResponseWriter, r *http.Request) {
 	postID := chi.URLParam(r, "postID")
 	mediaNum, err := strconv.Atoi(chi.URLParam(r, "mediaNum"))
@@ -22,7 +42,7 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := scraper.GetDataPreferVideo(postID)
+	item, err := offloadGetDataPreferVideo(postID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -34,84 +54,144 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 
 	media := item.Medias[mediaNum-1]
 	target := media.URL
-	if r.URL.Query().Has("thumbnail") {
-		if media.ThumbnailURL != "" {
-			target = media.ThumbnailURL
-		}
+	if r.URL.Query().Has("thumbnail") && media.ThumbnailURL != "" {
+		target = media.ThumbnailURL
 	}
 	if target == "" {
 		http.Error(w, "media URL unavailable", http.StatusNotFound)
 		return
 	}
-	if !r.URL.Query().Has("thumbnail") && media.IsVideo() && isPreviewMediaBot(r.Header.Get("User-Agent")) {
-		if proxyOffloadVideo(w, r, postID, target) {
-			return
-		}
-	}
-	w.Header().Set("Cache-Control", "public, max-age=300")
-	if r.Method == http.MethodHead {
-		w.Header().Set("Location", target)
-		w.WriteHeader(http.StatusFound)
+	if !r.URL.Query().Has("thumbnail") && media.IsVideo() {
+		streamOffloadVideo(w, r, postID, mediaNum, target)
 		return
 	}
-	http.Redirect(w, r, target, http.StatusFound)
+
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Location", target)
+	w.WriteHeader(http.StatusFound)
 }
 
-func isPreviewMediaBot(userAgent string) bool {
-	ua := strings.ToLower(userAgent)
-	for _, allowed := range PreviewVideoProxyUserAgents {
-		if allowed == "*" || strings.Contains(ua, allowed) {
-			return true
-		}
-	}
-	return false
-}
-
-func proxyOffloadVideo(w http.ResponseWriter, r *http.Request, postID, videoURL string) bool {
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, videoURL, nil)
+func streamOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, mediaNum int, videoURL string) {
+	res, err := requestVideoResponse(r, videoURL)
 	if err != nil {
-		slog.Warn("offload video proxy request creation failed", "postID", postID, "err", err)
-		return false
-	}
-	req.Header.Set("User-Agent", "Instagram 273.0.0.16.70 (iPhone15,2; iOS 17_5_1; en_US; en-US; scale=3.00; 1290x2796; 470085518)")
-	if rangeHeader := r.Header.Get("Range"); rangeHeader != "" {
-		req.Header.Set("Range", rangeHeader)
-	}
-	res, err := previewVideoProxyClient.Do(req)
-	if err != nil || res == nil {
-		if err == nil {
-			err = http.ErrAbortHandler
+		slog.Info("offload video URL needs refresh", "postID", postID, "err", err)
+		refreshed, refreshErr := offloadRefreshDataPreferVideo(postID)
+		if refreshErr == nil && mediaNum <= len(refreshed.Medias) {
+			media := refreshed.Medias[mediaNum-1]
+			if media.IsVideo() && media.URL != "" && media.URL != videoURL {
+				res, err = requestVideoResponse(r, media.URL)
+			} else {
+				err = errors.New("refreshed media did not contain a new video URL")
+			}
+		} else if refreshErr != nil {
+			err = fmt.Errorf("refresh failed: %w", refreshErr)
 		}
-		slog.Warn("offload video proxy upstream failed", "postID", postID, "err", err)
-		return false
+	}
+	if err != nil || res == nil {
+		slog.Warn("offload video unavailable after refresh", "postID", postID, "err", err)
+		http.Error(w, "video stream temporarily unavailable", http.StatusBadGateway)
+		return
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusPartialContent {
-		slog.Warn("offload video proxy upstream rejected request", "postID", postID, "status", res.Status)
-		return false
-	}
-	if res.ContentLength > maxPreviewVideoProxyBytes {
-		slog.Warn("offload video proxy response too large", "postID", postID, "contentLength", res.ContentLength)
-		return false
-	}
-	for _, key := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "Last-Modified", "ETag", "Cache-Control"} {
-		if value := res.Header.Get(key); value != "" {
-			w.Header().Set(key, value)
-		}
-	}
+
+	copyVideoResponseHeaders(w.Header(), res.Header)
 	if w.Header().Get("Content-Type") == "" {
 		w.Header().Set("Content-Type", "video/mp4")
 	}
+	if w.Header().Get("Accept-Ranges") == "" {
+		w.Header().Set("Accept-Ranges", "bytes")
+	}
 	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Header().Set("X-InstaFix-Video-Stream", "direct")
 	w.WriteHeader(res.StatusCode)
-	if r.Method != http.MethodHead {
-		limited := &io.LimitedReader{R: res.Body, N: maxPreviewVideoProxyBytes}
-		if _, err := io.Copy(w, limited); err != nil {
-			slog.Warn("offload video proxy client copy failed", "postID", postID, "err", err)
-		} else if limited.N == 0 {
-			slog.Warn("offload video proxy byte limit reached", "postID", postID, "maxBytes", maxPreviewVideoProxyBytes)
+	if r.Method == http.MethodHead {
+		slog.Info("offload video HEAD served", "postID", postID, "status", res.StatusCode)
+		return
+	}
+
+	written, copyErr := io.CopyBuffer(w, res.Body, make([]byte, 64*1024))
+	if copyErr != nil {
+		slog.Warn("offload video client copy failed", "postID", postID, "bytes", written, "err", copyErr)
+		return
+	}
+	slog.Info("offload video streamed", "postID", postID, "status", res.StatusCode, "bytes", written, "range", r.Header.Get("Range") != "")
+}
+
+type videoUpstreamError struct {
+	status int
+}
+
+func (e *videoUpstreamError) Error() string {
+	return "video upstream returned " + strconv.Itoa(e.status)
+}
+
+func requestVideoResponse(r *http.Request, videoURL string) (*http.Response, error) {
+	res, err := doVideoRequest(r, r.Method, videoURL, r.Header.Get("Range"))
+	if r.Method != http.MethodHead || usableVideoResponse(res, err) {
+		return res, responseError(res, err)
+	}
+	if res != nil {
+		res.Body.Close()
+	}
+
+	probeRange := r.Header.Get("Range")
+	if probeRange == "" {
+		probeRange = "bytes=0-0"
+	}
+	probe, probeErr := doVideoRequest(r, http.MethodGet, videoURL, probeRange)
+	return probe, responseError(probe, probeErr)
+}
+
+func doVideoRequest(r *http.Request, method, videoURL, rangeHeader string) (*http.Response, error) {
+	if !offloadMediaURLAllowed(videoURL) {
+		return nil, errors.New("video URL host is not allowed")
+	}
+	req, err := http.NewRequestWithContext(r.Context(), method, videoURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Instagram 273.0.0.16.70 (iPhone15,2; iOS 17_5_1; en_US; en-US; scale=3.00; 1290x2796; 470085518)")
+	req.Header.Set("Accept", "video/mp4,video/*;q=0.9,*/*;q=0.1")
+	if rangeHeader != "" {
+		req.Header.Set("Range", rangeHeader)
+	}
+	return offloadVideoClient.Do(req)
+}
+
+func responseError(res *http.Response, err error) error {
+	if err != nil {
+		return err
+	}
+	if res == nil {
+		return http.ErrAbortHandler
+	}
+	if !usableVideoResponse(res, nil) {
+		res.Body.Close()
+		return &videoUpstreamError{status: res.StatusCode}
+	}
+	return nil
+}
+
+func usableVideoResponse(res *http.Response, err error) bool {
+	if err != nil || res == nil {
+		return false
+	}
+	if res.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+		return true
+	}
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusPartialContent {
+		return false
+	}
+	contentType := strings.ToLower(strings.TrimSpace(res.Header.Get("Content-Type")))
+	return !strings.HasPrefix(contentType, "text/") &&
+		!strings.Contains(contentType, "application/json")
+}
+
+func copyVideoResponseHeaders(dst, src http.Header) {
+	for _, key := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "Last-Modified", "ETag", "Cache-Control"} {
+		if value := src.Get(key); value != "" {
+			dst.Set(key, value)
 		}
 	}
-	slog.Info("offload video proxied", "postID", postID, "status", res.StatusCode)
-	return true
 }
