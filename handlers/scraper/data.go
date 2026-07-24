@@ -106,10 +106,16 @@ func (m Media) IsVideo() bool { return strings.Contains(strings.ToLower(m.TypeNa
 func (m Media) IsImage() bool { return !m.IsVideo() }
 
 type InstaData struct {
-	PostID   string
-	Username string
-	Caption  string
-	Medias   []Media
+	PostID          string
+	Username        string
+	Caption         string
+	Medias          []Media
+	ViewCount       int64
+	LikeCount       int64
+	CommentCount    int64
+	HasViewCount    bool
+	HasLikeCount    bool
+	HasCommentCount bool
 }
 
 func (i *InstaData) HasVideo() bool {
@@ -122,6 +128,10 @@ func (i *InstaData) HasVideo() bool {
 		}
 	}
 	return false
+}
+
+func (i *InstaData) HasStats() bool {
+	return i != nil && (i.HasViewCount || i.HasLikeCount || i.HasCommentCount)
 }
 
 func init() {
@@ -219,6 +229,13 @@ func GetDataPreferVideoQuiet(postID string) (*InstaData, error) {
 func getDataPreferVideo(postID string, recordScrape bool) (*InstaData, error) {
 	item, err := getData(postID, recordScrape)
 	if err == nil && item.HasVideo() {
+		if !item.HasStats() && shouldTryPublicVideoRefresh(postID) {
+			if refreshed, refreshErr := RefreshVideoFromPublicGraphQL(postID); refreshErr == nil && refreshed.HasVideo() {
+				return refreshed, nil
+			} else if refreshErr != nil {
+				slog.Debug("Failed to refresh video stats from public GraphQL", "postID", postID, "err", refreshErr)
+			}
+		}
 		return item, nil
 	}
 	if shouldTryPublicVideoRefresh(postID) {
@@ -1195,6 +1212,9 @@ func graphQLMediaRoot(gqlData gjson.Result) (gjson.Result, string) {
 func parseXDTMediaData(i *InstaData, item gjson.Result) error {
 	i.Username = strings.TrimSpace(item.Get("owner.username").String())
 	i.Caption = strings.TrimSpace(item.Get("edge_media_to_caption.edges.0.node.text").String())
+	i.ViewCount, i.HasViewCount = firstPositiveGraphQLCount(item, "video_play_count", "video_view_count", "view_count", "play_count")
+	i.LikeCount, i.HasLikeCount = firstGraphQLCount(item, "edge_media_preview_like.count", "edge_liked_by.count", "like_count")
+	i.CommentCount, i.HasCommentCount = firstGraphQLCount(item, "edge_media_to_parent_comment.count", "edge_media_to_comment.count", "comment_count")
 
 	media := []gjson.Result{item}
 	if edges := item.Get("edge_sidecar_to_children.edges"); len(edges.Array()) > 0 {
@@ -1222,6 +1242,9 @@ func parseV1MediaData(i *InstaData, item gjson.Result) error {
 	if i.Caption == "" {
 		i.Caption = strings.TrimSpace(item.Get("caption_text").String())
 	}
+	i.ViewCount, i.HasViewCount = firstPositiveGraphQLCount(item, "play_count", "video_play_count", "view_count", "video_view_count", "ig_play_count", "fb_play_count")
+	i.LikeCount, i.HasLikeCount = firstGraphQLCount(item, "like_count")
+	i.CommentCount, i.HasCommentCount = firstGraphQLCount(item, "comment_count")
 
 	media := item.Get("carousel_media").Array()
 	if len(media) == 0 {
@@ -1433,6 +1456,33 @@ func positiveInt(n int64) int {
 		return 0
 	}
 	return int(n)
+}
+
+func firstGraphQLCount(value gjson.Result, paths ...string) (int64, bool) {
+	for _, path := range paths {
+		result := value.Get(path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		count := result.Int()
+		if count >= 0 {
+			return count, true
+		}
+	}
+	return 0, false
+}
+
+func firstPositiveGraphQLCount(value gjson.Result, paths ...string) (int64, bool) {
+	for _, path := range paths {
+		result := value.Get(path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		if count := result.Int(); count > 0 {
+			return count, true
+		}
+	}
+	return 0, false
 }
 
 func presentResult(value gjson.Result) bool {

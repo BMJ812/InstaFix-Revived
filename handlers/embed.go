@@ -160,10 +160,7 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 	viewsData.Creator = "@" + item.Username
 	// Gallery do not have any caption
 	if !isGallery {
-		viewsData.Description = item.Caption
-		if len(viewsData.Description) > 255 {
-			viewsData.Description = utils.Substr(viewsData.Description, 0, 250) + "..."
-		}
+		viewsData.Description = embedDescription(item)
 	}
 
 	media := item.Medias[max(1, mediaNum)-1]
@@ -220,6 +217,63 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	views.Embed(viewsData, w)
+}
+
+func embedDescription(item *scraper.InstaData) string {
+	if item == nil {
+		return ""
+	}
+	stats := mediaStatsLine(item)
+	caption := strings.TrimSpace(item.Caption)
+	description := caption
+	if stats != "" && caption != "" {
+		description = stats + "\n\n" + caption
+	} else if stats != "" {
+		description = stats
+	}
+	if len(description) > 255 {
+		description = utils.Substr(description, 0, 250) + "..."
+	}
+	return description
+}
+
+func mediaStatsLine(item *scraper.InstaData) string {
+	if item == nil {
+		return ""
+	}
+	parts := make([]string, 0, 3)
+	if item.HasViewCount {
+		parts = append(parts, "Views "+formatStatCount(item.ViewCount))
+	}
+	if item.HasLikeCount {
+		parts = append(parts, "Likes "+formatStatCount(item.LikeCount))
+	}
+	if item.HasCommentCount {
+		parts = append(parts, "Comments "+formatStatCount(item.CommentCount))
+	}
+	return strings.Join(parts, " | ")
+}
+
+func formatStatCount(value int64) string {
+	if value < 0 {
+		value = 0
+	}
+	raw := strconv.FormatInt(value, 10)
+	if len(raw) <= 3 {
+		return raw
+	}
+	var formatted strings.Builder
+	prefix := len(raw) % 3
+	if prefix > 0 {
+		formatted.WriteString(raw[:prefix])
+	}
+	for i := prefix; i < len(raw); i += 3 {
+		if formatted.Len() > 0 {
+			formatted.WriteByte(',')
+		}
+		formatted.WriteString(raw[i : i+3])
+	}
+	return formatted.String()
 }
 
 func isTelegramBot(userAgent string) bool {

@@ -14,6 +14,9 @@ const sampleXDTMedia = `{"shortcode_media":{
   "__typename":"XDTGraphSidecar",
   "owner":{"username":"designcompass"},
   "edge_media_to_caption":{"edges":[{"node":{"text":"hello\nworld"}}]},
+  "video_view_count":1234,
+  "edge_media_preview_like":{"count":56},
+  "edge_media_to_parent_comment":{"count":7},
   "edge_sidecar_to_children":{"edges":[
     {"node":{"__typename":"XDTGraphImage","is_video":false,"display_url":"https://cdn/img1.jpg","display_resources":[{"src":"https://cdn/img1_small.jpg","config_width":640,"config_height":800},{"src":"https://cdn/img1_big.jpg","config_width":1080,"config_height":1350}],"dimensions":{"width":1080,"height":1350}}},
     {"node":{"__typename":"XDTGraphVideo","is_video":true,"display_url":"https://cdn/vcover.jpg","video_url":"https://cdn/vid.mp4","dimensions":{"width":720,"height":1280}}}
@@ -31,6 +34,9 @@ func TestParseXDTMediaData(t *testing.T) {
 	if item.Caption != "hello\nworld" {
 		t.Fatalf("caption mismatch: %q", item.Caption)
 	}
+	if !item.HasViewCount || item.ViewCount != 1234 || !item.HasLikeCount || item.LikeCount != 56 || !item.HasCommentCount || item.CommentCount != 7 {
+		t.Fatalf("stats mismatch: %+v", item)
+	}
 	if len(item.Medias) != 2 {
 		t.Fatalf("want 2 medias, got %d", len(item.Medias))
 	}
@@ -46,6 +52,9 @@ const sampleV1Media = `{"xdt_api__v1__media__shortcode__web_info":{"items":[{
   "code":"DZWI_exgXz7",
   "user":{"username":"designcompass"},
   "caption":{"text":"v1 caption"},
+  "play_count":9876,
+  "like_count":432,
+  "comment_count":10,
   "carousel_media":[
     {"media_type":1,"image_versions2":{"candidates":[{"url":"https://cdn/small.jpg","width":320,"height":400},{"url":"https://cdn/big.jpg","width":1080,"height":1350}]}},
     {"media_type":2,"image_versions2":{"candidates":[{"url":"https://cdn/cover.jpg","width":720,"height":1280}]},"video_versions":[{"url":"https://cdn/vid_small.mp4","width":360,"height":640},{"url":"https://cdn/vid_big.mp4","width":720,"height":1280}]}
@@ -60,6 +69,9 @@ func TestParseV1MediaData(t *testing.T) {
 	if item.Username != "designcompass" || item.Caption != "v1 caption" {
 		t.Fatalf("metadata mismatch: %+v", item)
 	}
+	if !item.HasViewCount || item.ViewCount != 9876 || !item.HasLikeCount || item.LikeCount != 432 || !item.HasCommentCount || item.CommentCount != 10 {
+		t.Fatalf("stats mismatch: %+v", item)
+	}
 	if len(item.Medias) != 2 {
 		t.Fatalf("want 2 medias, got %d", len(item.Medias))
 	}
@@ -68,6 +80,28 @@ func TestParseV1MediaData(t *testing.T) {
 	}
 	if got := item.Medias[1]; !got.IsVideo() || got.URL != "https://cdn/vid_big.mp4" || got.ThumbnailURL != "https://cdn/cover.jpg" {
 		t.Fatalf("v1 video mismatch: %+v", got)
+	}
+}
+
+func TestParseV1MediaDataSkipsUnavailableZeroPlayCount(t *testing.T) {
+	body := `{"xdt_api__v1__media__shortcode__web_info":{"items":[{
+		"user":{"username":"user"},
+		"play_count":0,
+		"like_count":0,
+		"comment_count":0,
+		"media_type":2,
+		"image_versions2":{"candidates":[{"url":"https://cdn/cover.jpg","width":720,"height":1280}]},
+		"video_versions":[{"url":"https://cdn/video.mp4","width":720,"height":1280}]
+	}]}}`
+	item := &InstaData{PostID: "DZWI_exgXz7"}
+	if err := parseGraphQLMediaData(item, gjson.Parse(body)); err != nil {
+		t.Fatal(err)
+	}
+	if item.HasViewCount {
+		t.Fatalf("zero play count should be treated as unavailable: %+v", item)
+	}
+	if !item.HasLikeCount || item.LikeCount != 0 || !item.HasCommentCount || item.CommentCount != 0 {
+		t.Fatalf("explicit zero reactions should be preserved: %+v", item)
 	}
 }
 
