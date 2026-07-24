@@ -3,7 +3,10 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	_ "embed"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"instafix/observability"
@@ -2151,11 +2154,27 @@ func scrapeFromGQLWeb(postID string) ([]byte, error) {
 }
 
 func scrapeFromGQLMobile(postID string) ([]byte, error) {
+	req, err := newLoggedOutGraphQLRequest(postID)
+	if err != nil {
+		return nil, err
+	}
+	return doGraphQLRequest(req, "logged-out GraphQL")
+}
+
+func newLoggedOutGraphQLRequest(postID string) (*http.Request, error) {
+	variables, err := json.Marshal(map[string]any{
+		"shortcode": postID,
+		"__relay_internal__pv__PolarisAIGMMediaWebLabelEnabledrelayprovider": false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	lsd := newGraphQLRequestToken()
 	gqlParams := url.Values{}
-	gqlParams.Set("variables", `{"shortcode":"`+postID+`"}`)
-	gqlParams.Set("doc_id", envString("INSTAFIX_MOBILE_GRAPHQL_DOC_ID", "8845758582119845"))
+	gqlParams.Set("variables", string(variables))
+	gqlParams.Set("doc_id", envString("INSTAFIX_MOBILE_GRAPHQL_DOC_ID", "27128499623469141"))
 	gqlParams.Set("server_timestamps", "true")
-	referer := "https://www.instagram.com/p/" + postID + "/"
+	gqlParams.Set("lsd", lsd)
 	req, err := http.NewRequest("POST", "https://www.instagram.com/graphql/query/", strings.NewReader(gqlParams.Encode()))
 	if err != nil {
 		return nil, err
@@ -2164,17 +2183,21 @@ func scrapeFromGQLMobile(postID string) ([]byte, error) {
 		return io.NopCloser(strings.NewReader(gqlParams.Encode())), nil
 	}
 	req.Header = http.Header{
-		"Accept":           {"*/*"},
-		"Accept-Language":  {"en-US,en;q=0.8"},
-		"Content-Type":     {"application/x-www-form-urlencoded"},
-		"Referer":          {referer},
-		"User-Agent":       {envString("INSTAFIX_MOBILE_GRAPHQL_USER_AGENT", "Instagram 273.0.0.16.70 (iPhone15,2; iOS 17_5_1; en_US; en-US; scale=3.00; 1290x2796; 470085518)")},
-		"X-Ig-App-Id":      {"936619743392459"},
-		"X-Asbd-Id":        {"129477"},
-		"X-Requested-With": {"XMLHttpRequest"},
+		"Accept":             {"*/*"},
+		"Content-Type":       {"application/x-www-form-urlencoded"},
+		"User-Agent":         {envString("INSTAFIX_MOBILE_GRAPHQL_USER_AGENT", "Mozilla/5.0")},
+		"X-Fb-Friendly-Name": {"PolarisPostRootQuery"},
+		"X-Fb-Lsd":           {lsd},
 	}
+	return req, nil
+}
 
-	return doGraphQLRequest(req, "mobile GraphQL")
+func newGraphQLRequestToken() string {
+	var token [12]byte
+	if _, err := rand.Read(token[:]); err == nil {
+		return hex.EncodeToString(token[:])
+	}
+	return strconv.FormatInt(time.Now().UnixNano(), 36)
 }
 
 func envString(name, fallback string) string {
