@@ -15,7 +15,7 @@ func TestEmbedDescriptionIncludesOnlyAvailableStats(t *testing.T) {
 		HasCommentCount: false,
 	}
 	got := embedDescription(item)
-	want := "Views 1,234 | Likes 0\n\ncaption"
+	want := "▶️ 1,234  ❤️ 0\n\ncaption"
 	if got != want {
 		t.Fatalf("embedDescription() = %q, want %q", got, want)
 	}

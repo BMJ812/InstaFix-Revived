@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -73,6 +74,13 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 }
 
 func streamOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, mediaNum int, videoURL string) {
+	// Full Reel downloads can legitimately take longer than the server's
+	// page-response WriteTimeout. Clear only this response deadline while the
+	// upstream body is streamed; request cancellation still stops the copy.
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		slog.Debug("offload video write deadline unchanged", "postID", postID, "err", err)
+	}
+
 	res, err := requestVideoResponse(r, videoURL)
 	if err != nil {
 		slog.Info("offload video URL needs refresh", "postID", postID, "err", err)

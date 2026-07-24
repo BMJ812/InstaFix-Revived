@@ -189,8 +189,12 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 		viewsData.ImageURL = sb.String()
 	default:
 		videoRoute := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(max(1, mediaNum))
-		viewsData.Card = "player"
-		viewsData.OGType = "video.other"
+		// Telegram treats Twitter player cards as an iframe-style preview and
+		// falls back to the thumbnail without fetching og:video. Keep the
+		// Twitter card image-compatible and expose the MP4 through Open Graph,
+		// matching the metadata contract used by OGInstagram.
+		viewsData.Card = "summary_large_image"
+		viewsData.OGType = "article"
 		sb.WriteString(videoRoute)
 		viewsData.Width = media.Width
 		viewsData.Height = media.Height
@@ -207,7 +211,6 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 			viewsData.ImageAlt = strings.ReplaceAll(strings.TrimSpace(item.Caption), "\n", " ")
 		}
 		viewsData.VideoURL = videoRoute
-		viewsData.PlayerURL = publicBaseURL + "/player/" + postID + "/" + strconv.Itoa(max(1, mediaNum))
 
 		viewsData.OEmbedURL = scheme + "://" + r.Host + "/oembed?text=" + url.QueryEscape(viewsData.Description) + "&url=" + viewsData.URL
 	}
@@ -243,15 +246,15 @@ func mediaStatsLine(item *scraper.InstaData) string {
 	}
 	parts := make([]string, 0, 3)
 	if item.HasViewCount {
-		parts = append(parts, "Views "+formatStatCount(item.ViewCount))
+		parts = append(parts, "▶️ "+formatStatCount(item.ViewCount))
 	}
 	if item.HasLikeCount {
-		parts = append(parts, "Likes "+formatStatCount(item.LikeCount))
+		parts = append(parts, "❤️ "+formatStatCount(item.LikeCount))
 	}
 	if item.HasCommentCount {
-		parts = append(parts, "Comments "+formatStatCount(item.CommentCount))
+		parts = append(parts, "💬 "+formatStatCount(item.CommentCount))
 	}
-	return strings.Join(parts, " | ")
+	return strings.Join(parts, "  ")
 }
 
 func formatStatCount(value int64) string {

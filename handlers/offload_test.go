@@ -8,8 +8,10 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	scraper "instafix/handlers/scraper"
+	"instafix/observability"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -77,6 +79,47 @@ func TestOffloadVideoRangeReturnsDirect206(t *testing.T) {
 	}
 	if got := rec.Body.String(); got != "0123" {
 		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestOffloadVideoCanOutliveServerWriteTimeout(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Content-Length", "8")
+		_, _ = io.WriteString(w, "0123")
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		time.Sleep(120 * time.Millisecond)
+		_, _ = io.WriteString(w, "4567")
+	}))
+	defer upstream.Close()
+
+	item := &scraper.InstaData{PostID: "DaSlow01", Medias: []scraper.Media{{TypeName: "GraphVideo", URL: upstream.URL + "/video.mp4"}}}
+	stubOffloadData(t, item, func(string) (*scraper.InstaData, error) {
+		t.Fatal("refresh should not be called")
+		return nil, nil
+	})
+
+	router := chi.NewRouter()
+	router.Use(observability.Default.Middleware)
+	router.Get("/offload/{postID}/{mediaNum}", Offload)
+	server := httptest.NewUnstartedServer(router)
+	server.Config.WriteTimeout = 50 * time.Millisecond
+	server.Start()
+	defer server.Close()
+
+	res, err := server.Client().Get(server.URL + "/offload/DaSlow01/1")
+	if err != nil {
+		t.Fatalf("GET slow video: %v", err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read slow video: %v", err)
+	}
+	if res.StatusCode != http.StatusOK || string(body) != "01234567" {
+		t.Fatalf("status = %d, body = %q", res.StatusCode, body)
 	}
 }
 
