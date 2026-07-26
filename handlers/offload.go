@@ -63,6 +63,10 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !r.URL.Query().Has("thumbnail") && media.IsVideo() {
+		if shouldRedirectPreviewVideo(r.UserAgent()) {
+			redirectOffloadVideo(w, r, postID, mediaNum, target)
+			return
+		}
 		streamOffloadVideo(w, r, postID, mediaNum, target)
 		return
 	}
@@ -71,6 +75,58 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Location", target)
 	w.WriteHeader(http.StatusFound)
+}
+
+func redirectOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, mediaNum int, videoURL string) {
+	target, err := validatedRedirectVideoURL(r, postID, mediaNum, videoURL)
+	if err != nil {
+		slog.Warn("offload video redirect unavailable after refresh", "postID", postID, "err", err)
+		http.Error(w, "video redirect temporarily unavailable", http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Location", target)
+	w.Header().Set("X-InstaFix-Video-Delivery", "cdn-redirect")
+	w.WriteHeader(http.StatusFound)
+	slog.Info("offload video redirected to CDN", "postID", postID, "media_index", mediaNum, "status", http.StatusFound)
+}
+
+func validatedRedirectVideoURL(r *http.Request, postID string, mediaNum int, videoURL string) (string, error) {
+	if err := probeVideoURL(r, videoURL); err == nil {
+		return videoURL, nil
+	} else {
+		slog.Info("offload redirect video URL needs refresh", "postID", postID, "err", err)
+	}
+
+	refreshed, refreshErr := offloadRefreshDataPreferVideo(postID)
+	if refreshErr != nil {
+		return "", fmt.Errorf("refresh failed: %w", refreshErr)
+	}
+	if mediaNum < 1 || mediaNum > len(refreshed.Medias) {
+		return "", errors.New("refreshed media index out of range")
+	}
+	media := refreshed.Medias[mediaNum-1]
+	if !media.IsVideo() || media.URL == "" {
+		return "", errors.New("refreshed media did not contain a video URL")
+	}
+	if err := probeVideoURL(r, media.URL); err != nil {
+		return "", fmt.Errorf("refreshed video URL failed validation: %w", err)
+	}
+	return media.URL, nil
+}
+
+func probeVideoURL(r *http.Request, videoURL string) error {
+	probe := r.Clone(r.Context())
+	probe.Method = http.MethodHead
+	probe.Header = r.Header.Clone()
+	probe.Header.Del("Range")
+	res, err := requestVideoResponse(probe, videoURL)
+	if res != nil {
+		res.Body.Close()
+	}
+	return err
 }
 
 func streamOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, mediaNum int, videoURL string) {

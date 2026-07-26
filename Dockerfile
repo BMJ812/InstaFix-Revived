@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
 
+ARG BUILDPLATFORM=linux/amd64
 FROM --platform=$BUILDPLATFORM golang:1.23 AS app-builder
 
 # Set destination for COPY

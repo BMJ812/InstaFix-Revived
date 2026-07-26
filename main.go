@@ -74,6 +74,11 @@ func main() {
 	if handlers.PreviewVideoProxyEnabled {
 		slog.Info("preview video proxy configured", "user_agents", strings.Join(handlers.PreviewVideoProxyUserAgents, ","), "timeout", handlers.PreviewVideoProxyTimeout.String())
 	}
+	previewVideoCDNRedirectEnabled, _ := strconv.ParseBool(os.Getenv("PREVIEW_VIDEO_CDN_REDIRECT_ENABLED"))
+	handlers.ConfigurePreviewVideoCDNRedirect(previewVideoCDNRedirectEnabled, os.Getenv("PREVIEW_VIDEO_CDN_REDIRECT_USER_AGENTS"))
+	if handlers.PreviewVideoCDNRedirectEnabled {
+		slog.Info("preview video CDN redirect configured", "user_agents", strings.Join(handlers.PreviewVideoCDNRedirectUserAgents, ","))
+	}
 	if maxBytes, err := strconv.ParseInt(strings.TrimSpace(os.Getenv("MAX_INLINE_VIDEO_BYTES")), 10, 64); err == nil {
 		handlers.ConfigureMaxInlineVideoBytes(maxBytes)
 	} else {

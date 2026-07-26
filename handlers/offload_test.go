@@ -244,3 +244,82 @@ func TestLegacyVideosRouteAlsoStreamsWithoutRedirect(t *testing.T) {
 		t.Fatal("legacy video route must not redirect")
 	}
 }
+
+func TestOffloadRedirectsConfiguredPreviewBotToValidatedCDNURL(t *testing.T) {
+	var probeMethod atomic.Value
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeMethod.Store(r.Method)
+		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Content-Length", "31434927")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	item := &scraper.InstaData{PostID: "DbLarge1", Medias: []scraper.Media{{TypeName: "GraphVideo", URL: upstream.URL + "/video.mp4"}}}
+	stubOffloadData(t, item, func(string) (*scraper.InstaData, error) {
+		t.Fatal("refresh should not be called for a valid CDN URL")
+		return nil, nil
+	})
+	oldEnabled := PreviewVideoCDNRedirectEnabled
+	oldAgents := PreviewVideoCDNRedirectUserAgents
+	ConfigurePreviewVideoCDNRedirect(true, "telegrambot")
+	t.Cleanup(func() {
+		PreviewVideoCDNRedirectEnabled = oldEnabled
+		PreviewVideoCDNRedirectUserAgents = oldAgents
+	})
+
+	req := offloadRequest(t, http.MethodGet, "https://fix.example/offload/DbLarge1/1", "DbLarge1", "1")
+	req.Header.Set("User-Agent", "TelegramBot (like TwitterBot)")
+	rec := httptest.NewRecorder()
+	Offload(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != upstream.URL+"/video.mp4" {
+		t.Fatalf("Location = %q", got)
+	}
+	if got := rec.Header().Get("X-InstaFix-Video-Delivery"); got != "cdn-redirect" {
+		t.Fatalf("delivery header = %q", got)
+	}
+	if got := probeMethod.Load(); got != http.MethodHead {
+		t.Fatalf("probe method = %v", got)
+	}
+}
+
+func TestOffloadRedirectRefreshesRejectedCDNURL(t *testing.T) {
+	stale := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "expired", http.StatusForbidden)
+	}))
+	defer stale.Close()
+	fresh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer fresh.Close()
+
+	item := &scraper.InstaData{PostID: "DbStale2", Medias: []scraper.Media{{TypeName: "GraphVideo", URL: stale.URL + "/video.mp4"}}}
+	refreshed := &scraper.InstaData{PostID: "DbStale2", Medias: []scraper.Media{{TypeName: "GraphVideo", URL: fresh.URL + "/video.mp4"}}}
+	stubOffloadData(t, item, func(string) (*scraper.InstaData, error) {
+		return refreshed, nil
+	})
+	oldEnabled := PreviewVideoCDNRedirectEnabled
+	oldAgents := PreviewVideoCDNRedirectUserAgents
+	ConfigurePreviewVideoCDNRedirect(true, "telegrambot")
+	t.Cleanup(func() {
+		PreviewVideoCDNRedirectEnabled = oldEnabled
+		PreviewVideoCDNRedirectUserAgents = oldAgents
+	})
+
+	req := offloadRequest(t, http.MethodGet, "https://fix.example/offload/DbStale2/1", "DbStale2", "1")
+	req.Header.Set("User-Agent", "TelegramBot (like TwitterBot)")
+	rec := httptest.NewRecorder()
+	Offload(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != fresh.URL+"/video.mp4" {
+		t.Fatalf("Location = %q", got)
+	}
+}

@@ -16,6 +16,8 @@ import (
 var VideoProxyAddr string
 var PreviewVideoProxyEnabled bool
 var PreviewVideoProxyUserAgents = []string{"telegrambot", "discordbot", "facebookexternalhit", "whatsapp", "slackbot", "twitterbot", "xbot", "skypeuripreview", "linkedinbot"}
+var PreviewVideoCDNRedirectEnabled bool
+var PreviewVideoCDNRedirectUserAgents = []string{"telegrambot"}
 var PreviewVideoProxyTimeout = 25 * time.Second
 
 const maxPreviewVideoProxyBytes int64 = 50 << 20
@@ -32,9 +34,19 @@ var previewVideoProxyClient = &http.Client{
 
 func ConfigurePreviewVideoProxy(enabled bool, allowlist string) {
 	PreviewVideoProxyEnabled = enabled
-	if strings.TrimSpace(allowlist) == "" {
-		return
+	if items := parseUserAgentAllowlist(allowlist); len(items) > 0 {
+		PreviewVideoProxyUserAgents = items
 	}
+}
+
+func ConfigurePreviewVideoCDNRedirect(enabled bool, allowlist string) {
+	PreviewVideoCDNRedirectEnabled = enabled
+	if items := parseUserAgentAllowlist(allowlist); len(items) > 0 {
+		PreviewVideoCDNRedirectUserAgents = items
+	}
+}
+
+func parseUserAgentAllowlist(allowlist string) []string {
 	parts := strings.Split(allowlist, ",")
 	items := make([]string, 0, len(parts))
 	for _, part := range parts {
@@ -43,9 +55,7 @@ func ConfigurePreviewVideoProxy(enabled bool, allowlist string) {
 			items = append(items, part)
 		}
 	}
-	if len(items) > 0 {
-		PreviewVideoProxyUserAgents = items
-	}
+	return items
 }
 
 func ConfigurePreviewVideoProxyTimeout(seconds int) {
@@ -61,8 +71,19 @@ func shouldProxyPreviewVideo(userAgent string) bool {
 	if !PreviewVideoProxyEnabled || scraper.AuthHelperURL == "" {
 		return false
 	}
+	return userAgentMatches(userAgent, PreviewVideoProxyUserAgents)
+}
+
+func shouldRedirectPreviewVideo(userAgent string) bool {
+	if !PreviewVideoCDNRedirectEnabled {
+		return false
+	}
+	return userAgentMatches(userAgent, PreviewVideoCDNRedirectUserAgents)
+}
+
+func userAgentMatches(userAgent string, allowlist []string) bool {
 	ua := strings.ToLower(userAgent)
-	for _, allowed := range PreviewVideoProxyUserAgents {
+	for _, allowed := range allowlist {
 		if allowed == "*" || strings.Contains(ua, allowed) {
 			return true
 		}
