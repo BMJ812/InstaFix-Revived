@@ -47,3 +47,22 @@ func TestAuthFallbackOnlyReplacesUsableReelWhenItAddsVideo(t *testing.T) {
 		t.Fatal("auth image should fill an otherwise missing preview")
 	}
 }
+
+func TestPreviewVideoRouteVersionsConfiguredCDNRedirect(t *testing.T) {
+	oldEnabled := PreviewVideoCDNRedirectEnabled
+	oldAgents := PreviewVideoCDNRedirectUserAgents
+	ConfigurePreviewVideoCDNRedirect(true, "telegrambot")
+	t.Cleanup(func() {
+		PreviewVideoCDNRedirectEnabled = oldEnabled
+		PreviewVideoCDNRedirectUserAgents = oldAgents
+	})
+
+	got := previewVideoRoute("https://fix.example", "DbLarge1", 1, "TelegramBot (like TwitterBot)")
+	want := "https://fix.example/offload/DbLarge1/1?delivery=cdn-redirect-v1"
+	if got != want {
+		t.Fatalf("redirect route = %q, want %q", got, want)
+	}
+	if got := previewVideoRoute("https://fix.example", "DbLarge1", 1, "Discordbot/2.0"); got != "https://fix.example/offload/DbLarge1/1" {
+		t.Fatalf("non-configured route = %q", got)
+	}
+}

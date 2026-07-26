@@ -197,7 +197,7 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 		sb.WriteString(strconv.Itoa(max(1, mediaNum)))
 		viewsData.ImageURL = sb.String()
 	default:
-		videoRoute := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(max(1, mediaNum))
+		videoRoute := previewVideoRoute(publicBaseURL, postID, max(1, mediaNum), r.UserAgent())
 		// Telegram treats Twitter player cards as an iframe-style preview and
 		// falls back to the thumbnail without fetching og:video. Keep the
 		// Twitter card image-compatible and expose the MP4 through Open Graph,
@@ -229,6 +229,14 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	views.Embed(viewsData, w)
+}
+
+func previewVideoRoute(publicBaseURL, postID string, mediaNum int, userAgent string) string {
+	route := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(mediaNum)
+	if shouldRedirectPreviewVideo(userAgent) {
+		route += "?delivery=cdn-redirect-v1"
+	}
+	return route
 }
 
 func shouldUseAuthFallbackItem(current, auth *scraper.InstaData, preferVideo bool) bool {
