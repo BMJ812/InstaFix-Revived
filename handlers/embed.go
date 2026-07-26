@@ -126,15 +126,24 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 	} else {
 		item, err = scraper.GetDataQuiet(postID)
 	}
-	if err != nil || item == nil || len(item.Medias) == 0 || len(item.Username) == 0 {
+	needsAuthFallback := err != nil || item == nil || len(item.Medias) == 0 || len(item.Username) == 0 ||
+		preferVideo && item != nil && !item.HasVideo()
+	var authFallbackErr error
+	if needsAuthFallback {
 		if authItem, authErr := scraper.GetDataEmbedAuthFallback(postID); authErr == nil && authItem != nil && len(authItem.Medias) > 0 {
-			item = authItem
+			if shouldUseAuthFallbackItem(item, authItem, preferVideo) {
+				item = authItem
+			}
 			err = nil
 		} else if authErr != nil {
+			authFallbackErr = authErr
 			slog.Info("Embed auth fallback unavailable", "postID", postID, "err", authErr)
 		}
 	}
 	if err != nil || item == nil || len(item.Medias) == 0 {
+		if err == nil {
+			err = authFallbackErr
+		}
 		renderFallbackEmbed(w, r, viewsData, postID, err)
 		return
 	}
@@ -220,6 +229,19 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	views.Embed(viewsData, w)
+}
+
+func shouldUseAuthFallbackItem(current, auth *scraper.InstaData, preferVideo bool) bool {
+	if auth == nil || len(auth.Medias) == 0 {
+		return false
+	}
+	if current == nil || len(current.Medias) == 0 || current.Username == "" {
+		return true
+	}
+	if preferVideo {
+		return auth.HasVideo()
+	}
+	return true
 }
 
 func embedDescription(item *scraper.InstaData) string {

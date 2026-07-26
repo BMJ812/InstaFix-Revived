@@ -192,6 +192,13 @@ func getData(postID string, recordScrape bool) (*InstaData, error) {
 			}
 			return nil, scrapeErr
 		}
+		if len(item.Medias) == 0 {
+			scrapeErr = ErrNotFound
+			if recordScrape {
+				observability.Default.RecordScrape(false, item.PostID, scrapeErr)
+			}
+			return nil, scrapeErr
+		}
 
 		if err := normalizeMediaURLs(item); err != nil {
 			slog.Error("Failed to normalize media URLs", "postID", item.PostID, "err", err)
@@ -253,6 +260,16 @@ func getDataPreferVideo(postID string, recordScrape bool) (*InstaData, error) {
 	}
 	refreshed, refreshErr := RefreshDataFromAuthHelper(postID)
 	if refreshErr == nil && len(refreshed.Medias) > 0 {
+		mergeAvailableMetadata(refreshed, item)
+		if !refreshed.HasVideo() && item != nil && len(item.Medias) > 0 {
+			if err := saveDataToCache(item); err != nil {
+				slog.Warn("Failed to restore richer public metadata after image-only auth refresh", "postID", item.PostID, "err", err)
+			}
+			return item, nil
+		}
+		if err := saveDataToCache(refreshed); err != nil {
+			slog.Warn("Failed to save merged auth helper refresh to cache", "postID", refreshed.PostID, "err", err)
+		}
 		return refreshed, nil
 	}
 	if refreshErr != nil {
@@ -262,6 +279,30 @@ func getDataPreferVideo(postID string, recordScrape bool) (*InstaData, error) {
 		return nil, err
 	}
 	return item, nil
+}
+
+func mergeAvailableMetadata(dst, src *InstaData) {
+	if dst == nil || src == nil {
+		return
+	}
+	if dst.Username == "" {
+		dst.Username = src.Username
+	}
+	if dst.Caption == "" {
+		dst.Caption = src.Caption
+	}
+	if !dst.HasViewCount && src.HasViewCount {
+		dst.ViewCount = src.ViewCount
+		dst.HasViewCount = true
+	}
+	if !dst.HasLikeCount && src.HasLikeCount {
+		dst.LikeCount = src.LikeCount
+		dst.HasLikeCount = true
+	}
+	if !dst.HasCommentCount && src.HasCommentCount {
+		dst.CommentCount = src.CommentCount
+		dst.HasCommentCount = true
+	}
 }
 
 func RefreshVideoFromPublicGraphQL(postID string) (*InstaData, error) {
@@ -354,12 +395,8 @@ func RefreshDataFromAuthHelper(postID string) (*InstaData, error) {
 	if !validPostID(postID) {
 		return nil, errors.New("postID is not a valid Instagram post ID")
 	}
-	if reason, ok := negativeCacheHit(postID); ok {
-		return nil, errorForNegativeReason(reason)
-	}
 	item := &InstaData{PostID: postID}
 	if err := scrapeAuthHelperSingleflight(item); err != nil {
-		saveNegativeCacheIfUseful(postID, err)
 		return nil, err
 	}
 	if len(item.Medias) == 0 {
@@ -1705,7 +1742,7 @@ func scrapeAuthHelper(i *InstaData) error {
 		if message == "" {
 			message = res.Status
 		}
-		err := fmt.Errorf("auth helper HTTP %s: %s", res.Status, message)
+		err := authHelperResponseError(res.Status, message, code)
 		observability.Default.RecordAuthHelperResult(false, i.PostID, code, err)
 		return err
 	}
@@ -1740,6 +1777,21 @@ func scrapeAuthHelper(i *InstaData) error {
 	observability.Default.RecordAuthHelperResult(true, i.PostID, "", nil)
 	slog.Info("Data parsed from auth helper", "postID", i.PostID)
 	return nil
+}
+
+func authHelperResponseError(status, message, code string) error {
+	base := fmt.Errorf("auth helper HTTP %s: %s", status, message)
+	underlyingCode := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(code)), "cache_hit:")
+	lowerMessage := strings.ToLower(message)
+	switch {
+	case strings.Contains(underlyingCode, "geoblock") ||
+		underlyingCode == "auth_oembed_unavailable" && strings.Contains(lowerMessage, "geoblock"):
+		return fmt.Errorf("%w: %v", ErrRestricted, base)
+	case underlyingCode == "private_media" || underlyingCode == "media_not_found":
+		return fmt.Errorf("%w: %v", ErrNotFound, base)
+	default:
+		return base
+	}
 }
 
 func authHelperHealth() authHealth {

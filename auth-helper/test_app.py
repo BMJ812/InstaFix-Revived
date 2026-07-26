@@ -80,6 +80,12 @@ class VideoProxyHelpersTest(unittest.TestCase):
         self.assertEqual(app.classify_redirect_location("https://www.instagram.com/checkpoint/abc"), "checkpoint_required")
         self.assertEqual(app.classify_redirect_location("https://www.instagram.com/other"), "redirected")
 
+    def test_classify_instagram_error_recognizes_geoblock(self):
+        self.assertEqual(
+            app.classify_instagram_error(400, b'{"message":"geoblock_required"}'),
+            "geoblock_required",
+        )
+
     def test_cache_helpers_expire_entries(self):
         cache = {}
         app.cache_set(cache, "a", {"ok": True}, 60)
@@ -177,6 +183,49 @@ class VideoProxyHelpersTest(unittest.TestCase):
                 with self.assertRaises(app.HelperError):
                     app.oembed("POSTID", bypass_cache=True)
             media_info.assert_not_called()
+        finally:
+            app.FETCH_MEDIA_INFO_FALLBACK = old_fallback
+
+    def test_oembed_uses_media_info_fallback_when_enabled(self):
+        account = app.CookieAccount("a", "sessionid=a; ds_user_id=a", "/tmp/a")
+        body = b'{"message":"private media"}'
+        response = mock.Mock(status_code=403)
+        response.iter_content.return_value = [body]
+        media_payload = {
+            "ok": True,
+            "username": "public_user",
+            "caption": "caption",
+            "thumbnail_url": "https://scontent.cdninstagram.com/t.jpg",
+            "video_url": "https://scontent.cdninstagram.com/v.mp4",
+            "width": 720,
+            "height": 1280,
+        }
+        old_fallback = app.FETCH_MEDIA_INFO_FALLBACK
+        try:
+            app.FETCH_MEDIA_INFO_FALLBACK = True
+            with mock.patch("app.choose_cookie_account", return_value=account), mock.patch("app.auth_get", return_value=response), mock.patch("app.media_info_payload", return_value=media_payload) as media_info:
+                payload = app.oembed("POSTID", bypass_cache=True)
+            media_info.assert_called_once()
+            self.assertEqual(payload["video_url"], "https://scontent.cdninstagram.com/v.mp4")
+        finally:
+            app.FETCH_MEDIA_INFO_FALLBACK = old_fallback
+
+    def test_oembed_preserves_geoblock_when_media_info_fallback_fails(self):
+        account = app.CookieAccount("a", "sessionid=a; ds_user_id=a", "/tmp/a")
+        body = b'{"message":"geoblock_required"}'
+        response = mock.Mock(status_code=400)
+        response.iter_content.return_value = [body]
+        old_fallback = app.FETCH_MEDIA_INFO_FALLBACK
+        try:
+            app.FETCH_MEDIA_INFO_FALLBACK = True
+            with mock.patch("app.choose_cookie_account", return_value=account), mock.patch("app.auth_get", return_value=response), mock.patch(
+                "app.media_info_payload",
+                side_effect=app.HelperError("instagram_error", "media info HTTP 400"),
+            ):
+                with self.assertRaises(app.HelperError) as raised:
+                    app.oembed("POSTID", bypass_cache=True)
+            self.assertEqual(raised.exception.code, "geoblock_required")
+            self.assertIn("media info fallback", str(raised.exception))
         finally:
             app.FETCH_MEDIA_INFO_FALLBACK = old_fallback
 

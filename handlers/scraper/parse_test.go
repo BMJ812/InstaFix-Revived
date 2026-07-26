@@ -218,3 +218,57 @@ func TestAllowedMediaURL(t *testing.T) {
 		}
 	}
 }
+
+func TestAuthHelperResponseErrorClassifiesRestrictedAndMissingMedia(t *testing.T) {
+	restricted := authHelperResponseError(
+		"502 Bad Gateway",
+		"Instagram oEmbed HTTP 400: geoblock_required (code: auth_oembed_unavailable)",
+		"cache_hit:auth_oembed_unavailable",
+	)
+	if !errors.Is(restricted, ErrRestricted) {
+		t.Fatalf("geoblock error = %v, want ErrRestricted", restricted)
+	}
+
+	missing := authHelperResponseError(
+		"502 Bad Gateway",
+		"Instagram oEmbed HTTP 403 (code: private_media)",
+		"private_media",
+	)
+	if !errors.Is(missing, ErrNotFound) {
+		t.Fatalf("private media error = %v, want ErrNotFound", missing)
+	}
+
+	login := authHelperResponseError(
+		"502 Bad Gateway",
+		"Instagram redirected to login (code: login_required)",
+		"login_required",
+	)
+	if errors.Is(login, ErrRestricted) || errors.Is(login, ErrNotFound) {
+		t.Fatalf("login error received media classification: %v", login)
+	}
+}
+
+func TestMergeAvailableMetadataPreservesPublicStats(t *testing.T) {
+	public := &InstaData{
+		Username:        "public-user",
+		Caption:         "public caption",
+		ViewCount:       1200,
+		LikeCount:       93,
+		CommentCount:    2,
+		HasViewCount:    true,
+		HasLikeCount:    true,
+		HasCommentCount: true,
+	}
+	auth := &InstaData{Username: "auth-user", Medias: []Media{{TypeName: "GraphVideo"}}}
+
+	mergeAvailableMetadata(auth, public)
+
+	if auth.Username != "auth-user" || auth.Caption != "public caption" {
+		t.Fatalf("identity merge = username %q caption %q", auth.Username, auth.Caption)
+	}
+	if !auth.HasViewCount || auth.ViewCount != 1200 ||
+		!auth.HasLikeCount || auth.LikeCount != 93 ||
+		!auth.HasCommentCount || auth.CommentCount != 2 {
+		t.Fatalf("stats were not preserved: %#v", auth)
+	}
+}

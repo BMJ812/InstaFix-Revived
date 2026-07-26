@@ -253,6 +253,8 @@ def classify_instagram_error(status, body, fallback="instagram_error"):
         return "challenge_required"
     if "login_required" in text or "require_login" in text:
         return "login_required"
+    if "geoblock_required" in text or "geoblock" in text:
+        return "geoblock_required"
     if status in (401, 403) and ("not-logged-in" in text or "login" in text):
         return "login_required"
     if "private media" in text:
@@ -514,6 +516,10 @@ def oembed(post_id, forced_account=None, bypass_cache=False):
             store_auth_payload(post_id, payload)
             return payload
         except HelperError as exc:
+            if code == "geoblock_required":
+                error = f"Instagram oEmbed HTTP {r.status_code}: geoblock_required; media info fallback: {exc}"
+                cache_negative(post_id, code, error, account_id)
+                raise HelperError(code, error, r.status_code)
             if exc.code == "private_media":
                 code = classify_instagram_error(r.status_code, body, "auth_forbidden")
                 cache_negative(post_id, code, f"Instagram oEmbed HTTP {r.status_code}: {message}", account_id)
