@@ -219,6 +219,33 @@ func TestAllowedMediaURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeMediaURLsUsesGlobalInstagramCDNHost(t *testing.T) {
+	item := &InstaData{Medias: []Media{
+		{
+			TypeName:     "GraphVideo",
+			URL:          "https://scontent-vie1-1.cdninstagram.com/video.mp4?token=signed",
+			ThumbnailURL: "https://scontent-fra3-2.xx.fbcdn.net/cover.jpg?token=thumb",
+		},
+		{
+			TypeName: "GraphVideo",
+			URL:      "https://media.example.test/video.mp4?token=external",
+		},
+	}}
+
+	if err := normalizeMediaURLs(item); err != nil {
+		t.Fatalf("normalizeMediaURLs returned %v", err)
+	}
+	if got := item.Medias[0].URL; got != "https://scontent.cdninstagram.com/video.mp4?token=signed" {
+		t.Fatalf("video URL = %q", got)
+	}
+	if got := item.Medias[0].ThumbnailURL; got != "https://scontent.cdninstagram.com/cover.jpg?token=thumb" {
+		t.Fatalf("thumbnail URL = %q", got)
+	}
+	if got := item.Medias[1].URL; got != "https://media.example.test/video.mp4?token=external" {
+		t.Fatalf("external video URL changed: %q", got)
+	}
+}
+
 func TestAuthHelperResponseErrorClassifiesRestrictedAndMissingMedia(t *testing.T) {
 	restricted := authHelperResponseError(
 		"502 Bad Gateway",

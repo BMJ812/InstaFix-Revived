@@ -205,8 +205,7 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 		viewsData.Card = "summary_large_image"
 		viewsData.OGType = "article"
 		sb.WriteString(videoRoute)
-		viewsData.Width = media.Width
-		viewsData.Height = media.Height
+		viewsData.Width, viewsData.Height = videoDisplaySize(media.Width, media.Height)
 		if viewsData.Width <= 0 {
 			viewsData.Width = 400
 		}
@@ -234,9 +233,26 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 func previewVideoRoute(publicBaseURL, postID string, mediaNum int, userAgent string) string {
 	route := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(mediaNum)
 	if shouldRedirectPreviewVideo(userAgent) {
-		route += "?delivery=cdn-redirect-v1"
+		route += "?delivery=cdn-redirect-v3"
 	}
 	return route
+}
+
+func videoDisplaySize(width, height int) (int, int) {
+	if width > 0 && height > 0 && width < 400 && height < 400 {
+		return width * 2, height * 2
+	}
+	if width <= 0 || height <= 0 {
+		return width, height
+	}
+	const maxPreviewDimension = 1080
+	multiplier := 1.0
+	if width > height && width > maxPreviewDimension {
+		multiplier = float64(maxPreviewDimension) / float64(width)
+	} else if height >= width && height > maxPreviewDimension {
+		multiplier = float64(maxPreviewDimension) / float64(height)
+	}
+	return int(float64(width)*multiplier + 0.5), int(float64(height)*multiplier + 0.5)
 }
 
 func shouldUseAuthFallbackItem(current, auth *scraper.InstaData, preferVideo bool) bool {

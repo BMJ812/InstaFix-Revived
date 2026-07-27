@@ -21,6 +21,24 @@ func TestEmbedDescriptionIncludesOnlyAvailableStats(t *testing.T) {
 	}
 }
 
+func TestVideoDisplaySizeCapsLongEdgeForPreviewClients(t *testing.T) {
+	cases := []struct {
+		width, height int
+		wantW, wantH  int
+	}{
+		{width: 720, height: 1280, wantW: 608, wantH: 1080},
+		{width: 1216, height: 2160, wantW: 608, wantH: 1080},
+		{width: 2560, height: 1440, wantW: 1080, wantH: 608},
+		{width: 320, height: 640, wantW: 320, wantH: 640},
+	}
+	for _, tc := range cases {
+		gotW, gotH := videoDisplaySize(tc.width, tc.height)
+		if gotW != tc.wantW || gotH != tc.wantH {
+			t.Fatalf("videoDisplaySize(%d, %d) = %dx%d, want %dx%d", tc.width, tc.height, gotW, gotH, tc.wantW, tc.wantH)
+		}
+	}
+}
+
 func TestAuthFallbackOnlyReplacesUsableReelWhenItAddsVideo(t *testing.T) {
 	public := &scraper.InstaData{
 		Username:     "public",
@@ -58,7 +76,7 @@ func TestPreviewVideoRouteVersionsConfiguredCDNRedirect(t *testing.T) {
 	})
 
 	got := previewVideoRoute("https://fix.example", "DbLarge1", 1, "TelegramBot (like TwitterBot)")
-	want := "https://fix.example/offload/DbLarge1/1?delivery=cdn-redirect-v1"
+	want := "https://fix.example/offload/DbLarge1/1?delivery=cdn-redirect-v3"
 	if got != want {
 		t.Fatalf("redirect route = %q, want %q", got, want)
 	}

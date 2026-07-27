@@ -508,8 +508,6 @@ func normalizeMediaURLs(item *InstaData) error {
 	if len(item.Medias) > maxMediaItems {
 		item.Medias = item.Medias[:maxMediaItems]
 	}
-	// Replace public image CDN hosts with scontent.cdninstagram.com while preserving
-	// original video CDN hosts. Video URLs are signed and host-sensitive.
 	for n, media := range item.Medias {
 		if len(media.URL) > maxMediaURLLength {
 			return fmt.Errorf("media URL too large")
@@ -521,14 +519,12 @@ func normalizeMediaURLs(item *InstaData) error {
 		if err != nil {
 			return err
 		}
-		if !media.IsVideo() {
-			u.Host = "scontent.cdninstagram.com"
-		}
+		normalizeInstagramCDNHost(u)
 		item.Medias[n].URL = u.String()
 		if media.ThumbnailURL != "" {
 			thumb, err := url.Parse(media.ThumbnailURL)
 			if err == nil && thumb.Host != "" && (thumb.Scheme == "http" || thumb.Scheme == "https") {
-				thumb.Host = "scontent.cdninstagram.com"
+				normalizeInstagramCDNHost(thumb)
 				item.Medias[n].ThumbnailURL = thumb.String()
 			}
 		}
@@ -540,6 +536,14 @@ func normalizeMediaURLs(item *InstaData) error {
 		}
 	}
 	return nil
+}
+
+func normalizeInstagramCDNHost(u *url.URL) {
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	if host == "cdninstagram.com" || strings.HasSuffix(host, ".cdninstagram.com") ||
+		host == "fbcdn.net" || strings.HasSuffix(host, ".fbcdn.net") {
+		u.Host = "scontent.cdninstagram.com"
+	}
 }
 
 func saveDataToCache(item *InstaData) error {
