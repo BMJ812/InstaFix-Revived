@@ -14,7 +14,7 @@ func TestEmbedVideoUsesOGVideoWithoutTwitterPlayerCard(t *testing.T) {
 		Card:        "summary_large_image",
 		Title:       "@user",
 		ImageURL:    "https://example.com/offload/CODE/1?thumbnail=1",
-		VideoURL:    "https://example.com/offload/CODE/1",
+		VideoURL:    "https://example.com/offload/CODE/1.mp4",
 		URL:         "https://instagram.com/reel/CODE/",
 		Description: "caption",
 		OGType:      "article",
@@ -26,8 +26,8 @@ func TestEmbedVideoUsesOGVideoWithoutTwitterPlayerCard(t *testing.T) {
 	for _, want := range []string{
 		`<meta name="twitter:card" content="summary_large_image"/>`,
 		`<meta property="og:type" content="article"/>`,
-		`<meta property="og:video" content="https://example.com/offload/CODE/1"/>`,
-		`<meta property="og:video:secure_url" content="https://example.com/offload/CODE/1"/>`,
+		`<meta property="og:video" content="https://example.com/offload/CODE/1.mp4"/>`,
+		`<meta property="og:video:secure_url" content="https://example.com/offload/CODE/1.mp4"/>`,
 		`<meta property="og:video:type" content="video/mp4"/>`,
 	} {
 		if !strings.Contains(html, want) {

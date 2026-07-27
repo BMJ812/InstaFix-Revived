@@ -76,11 +76,11 @@ func TestPreviewVideoRouteVersionsConfiguredCDNRedirect(t *testing.T) {
 	})
 
 	got := previewVideoRoute("https://fix.example", "DbLarge1", 1, "TelegramBot (like TwitterBot)")
-	want := "https://fix.example/offload/DbLarge1/1?delivery=cdn-redirect-v3"
+	want := "https://fix.example/offload/DbLarge1/1.mp4?delivery=cdn-redirect-v4"
 	if got != want {
 		t.Fatalf("redirect route = %q, want %q", got, want)
 	}
-	if got := previewVideoRoute("https://fix.example", "DbLarge1", 1, "Discordbot/2.0"); got != "https://fix.example/offload/DbLarge1/1" {
+	if got := previewVideoRoute("https://fix.example", "DbLarge1", 1, "Discordbot/2.0"); got != "https://fix.example/offload/DbLarge1/1.mp4" {
 		t.Fatalf("non-configured route = %q", got)
 	}
 }

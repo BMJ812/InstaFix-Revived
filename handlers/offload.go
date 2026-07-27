@@ -37,7 +37,7 @@ var (
 // preview clients never receive a redirect as their MP4 target.
 func Offload(w http.ResponseWriter, r *http.Request) {
 	postID := chi.URLParam(r, "postID")
-	mediaNum, err := strconv.Atoi(chi.URLParam(r, "mediaNum"))
+	mediaNum, err := strconv.Atoi(strings.TrimSuffix(chi.URLParam(r, "mediaNum"), ".mp4"))
 	if err != nil || mediaNum < 1 {
 		http.Error(w, "invalid media number", http.StatusBadRequest)
 		return
@@ -63,7 +63,9 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !r.URL.Query().Has("thumbnail") && media.IsVideo() {
-		if shouldRedirectPreviewVideo(r.UserAgent()) {
+		if shouldRedirectPreviewVideo(r.UserAgent()) &&
+			r.Method != http.MethodHead &&
+			r.Header.Get("Range") == "" {
 			redirectOffloadVideo(w, r, postID, mediaNum, target)
 			return
 		}
@@ -85,7 +87,7 @@ func redirectOffloadVideo(w http.ResponseWriter, r *http.Request, postID string,
 		return
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Location", target)
 	w.Header().Set("X-InstaFix-Video-Delivery", "cdn-redirect")

@@ -231,9 +231,9 @@ func Embed(w http.ResponseWriter, r *http.Request) {
 }
 
 func previewVideoRoute(publicBaseURL, postID string, mediaNum int, userAgent string) string {
-	route := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(mediaNum)
+	route := publicBaseURL + "/offload/" + postID + "/" + strconv.Itoa(mediaNum) + ".mp4"
 	if shouldRedirectPreviewVideo(userAgent) {
-		route += "?delivery=cdn-redirect-v3"
+		route += "?delivery=cdn-redirect-v4"
 	}
 	return route
 }

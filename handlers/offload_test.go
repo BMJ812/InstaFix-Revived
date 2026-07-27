@@ -268,7 +268,7 @@ func TestOffloadRedirectsConfiguredPreviewBotToValidatedCDNURL(t *testing.T) {
 		PreviewVideoCDNRedirectUserAgents = oldAgents
 	})
 
-	req := offloadRequest(t, http.MethodGet, "https://fix.example/offload/DbLarge1/1", "DbLarge1", "1")
+	req := offloadRequest(t, http.MethodGet, "https://fix.example/offload/DbLarge1/1.mp4", "DbLarge1", "1.mp4")
 	req.Header.Set("User-Agent", "TelegramBot (like TwitterBot)")
 	rec := httptest.NewRecorder()
 	Offload(rec, req)
@@ -279,11 +279,110 @@ func TestOffloadRedirectsConfiguredPreviewBotToValidatedCDNURL(t *testing.T) {
 	if got := rec.Header().Get("Location"); got != upstream.URL+"/video.mp4" {
 		t.Fatalf("Location = %q", got)
 	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
+		t.Fatalf("Cache-Control = %q", got)
+	}
 	if got := rec.Header().Get("X-InstaFix-Video-Delivery"); got != "cdn-redirect" {
 		t.Fatalf("delivery header = %q", got)
 	}
 	if got := probeMethod.Load(); got != http.MethodHead {
 		t.Fatalf("probe method = %v", got)
+	}
+}
+
+func TestOffloadConfiguredPreviewBotHEADReturnsDirectVideoMetadata(t *testing.T) {
+	var upstreamMethod atomic.Value
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamMethod.Store(r.Method)
+		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Content-Length", "31434927")
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	item := &scraper.InstaData{PostID: "DbLargeHead", Medias: []scraper.Media{{TypeName: "GraphVideo", URL: upstream.URL + "/video.mp4"}}}
+	stubOffloadData(t, item, func(string) (*scraper.InstaData, error) {
+		t.Fatal("refresh should not be called for a valid CDN URL")
+		return nil, nil
+	})
+	oldEnabled := PreviewVideoCDNRedirectEnabled
+	oldAgents := PreviewVideoCDNRedirectUserAgents
+	ConfigurePreviewVideoCDNRedirect(true, "telegrambot")
+	t.Cleanup(func() {
+		PreviewVideoCDNRedirectEnabled = oldEnabled
+		PreviewVideoCDNRedirectUserAgents = oldAgents
+	})
+
+	req := offloadRequest(t, http.MethodHead, "https://fix.example/offload/DbLargeHead/1.mp4", "DbLargeHead", "1.mp4")
+	req.Header.Set("User-Agent", "TelegramBot (like TwitterBot)")
+	rec := httptest.NewRecorder()
+	Offload(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "" {
+		t.Fatalf("HEAD must return direct metadata, Location = %q", got)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "video/mp4" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := rec.Header().Get("Content-Length"); got != "31434927" {
+		t.Fatalf("Content-Length = %q", got)
+	}
+	if rec.Body.Len() != 0 {
+		t.Fatalf("HEAD returned %d body bytes", rec.Body.Len())
+	}
+	if got := upstreamMethod.Load(); got != http.MethodHead {
+		t.Fatalf("upstream method = %v", got)
+	}
+}
+
+func TestOffloadConfiguredPreviewBotRangeReturnsDirect206(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Range"); got != "bytes=0-1023" {
+			t.Fatalf("upstream Range = %q", got)
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.Header().Set("Content-Range", "bytes 0-1023/31434927")
+		w.Header().Set("Content-Length", "1024")
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = io.WriteString(w, strings.Repeat("x", 1024))
+	}))
+	defer upstream.Close()
+
+	item := &scraper.InstaData{PostID: "DbLargeRange", Medias: []scraper.Media{{TypeName: "GraphVideo", URL: upstream.URL + "/video.mp4"}}}
+	stubOffloadData(t, item, func(string) (*scraper.InstaData, error) {
+		t.Fatal("refresh should not be called for a valid CDN URL")
+		return nil, nil
+	})
+	oldEnabled := PreviewVideoCDNRedirectEnabled
+	oldAgents := PreviewVideoCDNRedirectUserAgents
+	ConfigurePreviewVideoCDNRedirect(true, "telegrambot")
+	t.Cleanup(func() {
+		PreviewVideoCDNRedirectEnabled = oldEnabled
+		PreviewVideoCDNRedirectUserAgents = oldAgents
+	})
+
+	req := offloadRequest(t, http.MethodGet, "https://fix.example/offload/DbLargeRange/1.mp4", "DbLargeRange", "1.mp4")
+	req.Header.Set("User-Agent", "TelegramBot (like TwitterBot)")
+	req.Header.Set("Range", "bytes=0-1023")
+	rec := httptest.NewRecorder()
+	Offload(rec, req)
+
+	if rec.Code != http.StatusPartialContent {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "" {
+		t.Fatalf("Range GET must not redirect, Location = %q", got)
+	}
+	if got := rec.Header().Get("Content-Range"); got != "bytes 0-1023/31434927" {
+		t.Fatalf("Content-Range = %q", got)
+	}
+	if rec.Body.Len() != 1024 {
+		t.Fatalf("Range GET returned %d body bytes", rec.Body.Len())
 	}
 }
 
