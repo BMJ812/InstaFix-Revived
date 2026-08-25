@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	embed__0  = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="theme-color" content="#CE0071"/>`
+	embed__0  = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="theme-color" content="#ff0069"/>`
 	embed__1  = `<meta property="og:url" content="`
 	embed__2  = `"/><meta property="og:description" content="`
 	embed__3  = `"/>`
@@ -22,11 +22,11 @@ const (
 	embed__14 = `"/><meta name="twitter:player:height" content="`
 	embed__15 = `"/><meta name="twitter:player:stream" content="`
 	embed__16 = `"/><meta name="twitter:player:stream:content_type" content="video/mp4"/>`
-	embed__17 = `<meta property="og:site_name" content="Instagram preview"/>`
+	embed__17 = `<meta property="og:site_name" content="Instagram7"/>`
 	embed__18 = `<meta property="og:image" content="`
 	embed__20 = `<meta property="og:video" content="`
 	embed__21 = `"/><meta property="og:video:secure_url" content="`
-	embed__22 = `"/><meta property="og:video:type" content="video/mp4"/><meta property="og:video:width" content="`
+	embed__22 = `"/><meta property="og:video:type" content="video/mp4"/>`
 	embed__23 = `"/><meta property="og:video:height" content="`
 	embed__25 = `<link rel="alternate" href="`
 	embed__26 = `" type="application/json+oembed" title="`
@@ -44,9 +44,24 @@ func Embed(v *model.ViewsData, wr io.Writer) {
 		WriteEscString(v.CanonicalURL, buffer)
 		buffer.WriteString(`"/>`)
 	}
+	if v.FaviconURL != "" {
+		buffer.WriteString(`<link href="`)
+		WriteEscString(v.FaviconURL, buffer)
+		buffer.WriteString(`" rel="icon" sizes="any" type="image/svg+xml"/>`)
+	}
 	if v.OGType != "" {
 		buffer.WriteString(`<meta property="og:type" content="`)
 		WriteEscString(v.OGType, buffer)
+		buffer.WriteString(embed__3)
+	}
+	if v.AppleIconURL != "" {
+		buffer.WriteString(`<link rel="apple-touch-icon" href="`)
+		WriteEscString(v.AppleIconURL, buffer)
+		buffer.WriteString(`"/>`)
+	}
+	if v.ArticleAuthor != "" {
+		buffer.WriteString(`<meta property="article:author" content="`)
+		WriteEscString(v.ArticleAuthor, buffer)
 		buffer.WriteString(embed__3)
 	}
 	buffer.WriteString(`<meta property="og:locale" content="en_US"/>`)
@@ -77,30 +92,6 @@ func Embed(v *model.ViewsData, wr io.Writer) {
 		buffer.WriteString(embed__27)
 		WriteEscString(v.Title, buffer)
 		buffer.WriteString(embed__3)
-	}
-	if v.ImageURL != "" {
-		buffer.WriteString(embed__11)
-		WriteEscString(v.ImageURL, buffer)
-		buffer.WriteString(embed__3)
-	}
-	if v.ImageURL != "" && v.ImageWidth > 0 && v.ImageHeight > 0 {
-		buffer.WriteString(`<meta name="twitter:image:width" content="`)
-		WriteInt(int64(v.ImageWidth), buffer)
-		buffer.WriteString(`"/><meta name="twitter:image:height" content="`)
-		WriteInt(int64(v.ImageHeight), buffer)
-		buffer.WriteString(embed__3)
-	}
-	if v.ImageURL != "" && v.ImageAlt != "" {
-		buffer.WriteString(`<meta name="twitter:image:alt" content="`)
-		WriteEscString(v.ImageAlt, buffer)
-		buffer.WriteString(embed__3)
-	}
-	for _, imageURL := range v.ImageURLs {
-		if imageURL != "" && imageURL != v.ImageURL {
-			buffer.WriteString(embed__11)
-			WriteEscString(imageURL, buffer)
-			buffer.WriteString(embed__3)
-		}
 	}
 	if v.VideoURL != "" && v.PlayerURL != "" && v.Card == "player" {
 		buffer.WriteString(`<meta name="twitter:player" content="`)
@@ -163,16 +154,43 @@ func Embed(v *model.ViewsData, wr io.Writer) {
 			buffer.WriteString(embed__3)
 		}
 	}
+	if v.ImageURL != "" {
+		buffer.WriteString(embed__11)
+		WriteEscString(v.ImageURL, buffer)
+		buffer.WriteString(embed__3)
+	}
+	if v.ImageURL != "" && v.ImageWidth > 0 && v.ImageHeight > 0 {
+		buffer.WriteString(`<meta name="twitter:image:width" content="`)
+		WriteInt(int64(v.ImageWidth), buffer)
+		buffer.WriteString(`"/><meta name="twitter:image:height" content="`)
+		WriteInt(int64(v.ImageHeight), buffer)
+		buffer.WriteString(embed__3)
+	}
+	if v.ImageURL != "" && v.ImageAlt != "" {
+		buffer.WriteString(`<meta name="twitter:image:alt" content="`)
+		WriteEscString(v.ImageAlt, buffer)
+		buffer.WriteString(embed__3)
+	}
+	for _, imageURL := range v.ImageURLs {
+		if imageURL != "" && imageURL != v.ImageURL {
+			buffer.WriteString(embed__11)
+			WriteEscString(imageURL, buffer)
+			buffer.WriteString(embed__3)
+		}
+	}
 	if v.VideoURL != "" {
 		buffer.WriteString(embed__20)
 		WriteEscString(v.VideoURL, buffer)
 		buffer.WriteString(embed__21)
 		WriteEscString(v.VideoURL, buffer)
 		buffer.WriteString(embed__22)
-		WriteInt(int64(v.Width), buffer)
-		buffer.WriteString(embed__23)
-		WriteInt(int64(v.Height), buffer)
-		buffer.WriteString(embed__3)
+		if v.Width > 0 && v.Height > 0 {
+			buffer.WriteString(`<meta property="og:video:width" content="`)
+			WriteInt(int64(v.Width), buffer)
+			buffer.WriteString(embed__23)
+			WriteInt(int64(v.Height), buffer)
+			buffer.WriteString(embed__3)
+		}
 	}
 	if v.OEmbedURL != "" {
 		buffer.WriteString(embed__25)
@@ -181,10 +199,14 @@ func Embed(v *model.ViewsData, wr io.Writer) {
 		WriteEscString(v.Title, buffer)
 		buffer.WriteString(embed__3)
 	}
-	buffer.WriteString(embed__4)
-	WriteEscString(`0; url = `+v.URL+``, buffer)
-	buffer.WriteString(embed__5)
-	WriteEscString(v.URL, buffer)
-	buffer.WriteString(embed__6)
+	if !v.NoRedirect {
+		buffer.WriteString(embed__4)
+		WriteEscString(`0; url = `+v.URL+``, buffer)
+		buffer.WriteString(embed__5)
+		WriteEscString(v.URL, buffer)
+		buffer.WriteString(embed__6)
+	} else {
+		buffer.WriteString(`</head><body></body></html>`)
+	}
 
 }

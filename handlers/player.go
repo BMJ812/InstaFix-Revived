@@ -21,17 +21,16 @@ var playerTemplate = template.Must(template.New("player").Parse(`<!doctype html>
 // Player serves the HTML document required by twitter:player. The MP4 itself is
 // delivered by Offload, which supports direct GET, HEAD, and Range responses.
 func Player(w http.ResponseWriter, r *http.Request) {
+	if rejectStatelessLegacyMedia(w) {
+		return
+	}
 	postID := chi.URLParam(r, "postID")
 	mediaNum, err := strconv.Atoi(chi.URLParam(r, "mediaNum"))
 	if err != nil || mediaNum < 1 {
 		http.Error(w, "invalid media number", http.StatusBadRequest)
 		return
 	}
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	streamURL := scheme + "://" + r.Host + "/offload/" + postID + "/" + strconv.Itoa(mediaNum) + ".mp4"
+	streamURL := requestPublicBaseURL(r) + "/offload/" + postID + "/" + strconv.Itoa(mediaNum) + ".mp4"
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; media-src https:; style-src 'unsafe-inline'; frame-ancestors *")

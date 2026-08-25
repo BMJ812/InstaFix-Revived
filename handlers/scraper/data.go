@@ -160,6 +160,15 @@ func getData(postID string, recordScrape bool) (*InstaData, error) {
 	}
 
 	if cacheFresh {
+		if needsPublicOEmbedEnrichment(cached) {
+			if enrichErr := enrichPublicOEmbedMetadata(cached); enrichErr == nil {
+				if saveErr := saveDataToCache(cached); saveErr != nil {
+					slog.Debug("Failed to save oEmbed-enriched cached metadata", "postID", postID, "err", saveErr)
+				}
+			} else {
+				slog.Debug("Failed to enrich cached metadata from oEmbed", "postID", postID, "err", enrichErr)
+			}
+		}
 		observability.Default.RecordCacheHit()
 		return cached, nil
 	}
@@ -238,6 +247,11 @@ func getDataPreferVideo(postID string, recordScrape bool) (*InstaData, error) {
 	if err == nil && item.HasVideo() {
 		if !item.HasStats() && shouldTryPublicVideoRefresh(postID) {
 			if refreshed, refreshErr := RefreshVideoFromPublicGraphQL(postID); refreshErr == nil && refreshed.HasVideo() {
+				mergeAvailableMetadata(refreshed, item)
+				mergeMediaPresentation(refreshed, item)
+				if saveErr := saveDataToCache(refreshed); saveErr != nil {
+					slog.Debug("Failed to save merged public video refresh", "postID", postID, "err", saveErr)
+				}
 				return refreshed, nil
 			} else if refreshErr != nil {
 				slog.Debug("Failed to refresh video stats from public GraphQL", "postID", postID, "err", refreshErr)
@@ -247,6 +261,11 @@ func getDataPreferVideo(postID string, recordScrape bool) (*InstaData, error) {
 	}
 	if shouldTryPublicVideoRefresh(postID) {
 		if refreshed, refreshErr := RefreshVideoFromPublicGraphQL(postID); refreshErr == nil && refreshed.HasVideo() {
+			mergeAvailableMetadata(refreshed, item)
+			mergeMediaPresentation(refreshed, item)
+			if saveErr := saveDataToCache(refreshed); saveErr != nil {
+				slog.Debug("Failed to save merged public video refresh", "postID", postID, "err", saveErr)
+			}
 			return refreshed, nil
 		} else if refreshErr != nil {
 			slog.Debug("Failed to refresh video data from public GraphQL", "postID", postID, "err", refreshErr)
@@ -302,6 +321,27 @@ func mergeAvailableMetadata(dst, src *InstaData) {
 	if !dst.HasCommentCount && src.HasCommentCount {
 		dst.CommentCount = src.CommentCount
 		dst.HasCommentCount = true
+	}
+}
+
+func mergeMediaPresentation(dst, src *InstaData) {
+	if dst == nil || src == nil || len(dst.Medias) == 0 || len(src.Medias) == 0 {
+		return
+	}
+	dstMedia := &dst.Medias[0]
+	srcMedia := src.Medias[0]
+	if dstMedia.ThumbnailURL == "" {
+		if srcMedia.ThumbnailURL != "" {
+			dstMedia.ThumbnailURL = srcMedia.ThumbnailURL
+		} else if srcMedia.IsImage() {
+			dstMedia.ThumbnailURL = srcMedia.URL
+		}
+	}
+	if dstMedia.Width <= 0 && srcMedia.Width > 0 {
+		dstMedia.Width = srcMedia.Width
+	}
+	if dstMedia.Height <= 0 && srcMedia.Height > 0 {
+		dstMedia.Height = srcMedia.Height
 	}
 }
 
@@ -392,6 +432,21 @@ func savePublicVideoRefreshNegative(postID string, err error) {
 }
 
 func RefreshDataFromAuthHelper(postID string) (*InstaData, error) {
+	item, err := FetchDataFromAuthHelperUncached(postID)
+	if err != nil {
+		return nil, err
+	}
+	if err := saveDataToCache(item); err != nil {
+		slog.Warn("Failed to save auth helper refresh to cache", "postID", item.PostID, "err", err)
+	}
+	return item, nil
+}
+
+// FetchDataFromAuthHelperUncached returns authenticated metadata without
+// replacing the normal resolver cache. It is intended for narrow diagnostics
+// where the caller must compare metadata sources without changing production
+// behavior for subsequent requests.
+func FetchDataFromAuthHelperUncached(postID string) (*InstaData, error) {
 	if !validPostID(postID) {
 		return nil, errors.New("postID is not a valid Instagram post ID")
 	}
@@ -404,9 +459,6 @@ func RefreshDataFromAuthHelper(postID string) (*InstaData, error) {
 	}
 	if err := normalizeMediaURLs(item); err != nil {
 		return nil, err
-	}
-	if err := saveDataToCache(item); err != nil {
-		slog.Warn("Failed to save auth helper refresh to cache", "postID", item.PostID, "err", err)
 	}
 	return item, nil
 }
@@ -711,6 +763,7 @@ func scrapeAuthHelperSingleflight(i *InstaData) error {
 	ret, err, _ := sflightAuthHelper.Do(i.PostID, func() (interface{}, error) {
 		item := &InstaData{PostID: i.PostID}
 		if err := acquireAuthHelperSlot(); err != nil {
+			observability.Default.RecordAuthHelperSkipped(i.PostID, "busy")
 			return nil, err
 		}
 		defer releaseAuthHelperSlot()
@@ -870,13 +923,27 @@ func negativeReason(err error) (string, bool) {
 	if err == nil {
 		return "", false
 	}
+	msg := strings.ToLower(err.Error())
 	if errors.Is(err, ErrRestricted) {
-		return "restricted", true
+		switch {
+		case strings.Contains(msg, "min_age_account") || strings.Contains(msg, "under 21") || strings.Contains(msg, "people under"):
+			return "age_restricted_21", true
+		case strings.Contains(msg, "geoblock") || strings.Contains(msg, "region"):
+			return "geoblock", true
+		default:
+			return "restricted", true
+		}
 	}
 	if errors.Is(err, ErrNotFound) {
-		return "not_found", true
+		switch {
+		case strings.Contains(msg, "private"):
+			return "private", true
+		case strings.Contains(msg, "deleted"):
+			return "deleted", true
+		default:
+			return "not_found", true
+		}
 	}
-	msg := strings.ToLower(err.Error())
 	for _, token := range []string{"login_required", "checkpoint", "challenge", "cookie_missing", "auth_helper_unreachable", "context deadline", "timeout", "connection refused", "too many", " 429", "http 429", "http 5"} {
 		if strings.Contains(msg, token) {
 			return "", false
@@ -892,9 +959,17 @@ func negativeReason(err error) (string, bool) {
 
 func errorForNegativeReason(reason string) error {
 	switch reason {
-	case "restricted", "geoblock":
+	case "age_restricted_21":
+		return fmt.Errorf("%w: People under 21 can't see this content (MIN_AGE_ACCOUNT)", ErrRestricted)
+	case "geoblock":
+		return fmt.Errorf("%w: geoblock_required", ErrRestricted)
+	case "restricted":
 		return ErrRestricted
-	case "not_found", "private", "deleted":
+	case "private":
+		return fmt.Errorf("%w: private media", ErrNotFound)
+	case "deleted":
+		return fmt.Errorf("%w: deleted media", ErrNotFound)
+	case "not_found":
 		return ErrNotFound
 	default:
 		return fmt.Errorf("Instagram content unavailable: %s", reason)
@@ -1174,23 +1249,25 @@ func (i *InstaData) scrapeData(allowAuth bool) error {
 		} else {
 			slog.Debug("Failed to scrape data from public oEmbed fallback", "postID", i.PostID, "err", err)
 		}
+		var authErr error
 		if allowAuth {
-			if err := scrapeAuthHelperSingleflight(i); err == nil {
+			authErr = scrapeAuthHelperSingleflight(i)
+			if authErr == nil {
 				return nil
-			} else if err != ErrNotFound {
-				slog.Debug("Failed to scrape data from auth helper", "postID", i.PostID, "err", err)
+			} else if !errors.Is(authErr, ErrNotFound) {
+				slog.Debug("Failed to scrape data from auth helper", "postID", i.PostID, "err", authErr)
 			}
 		}
 		if status == "fail" {
 			if err := scrapeRestriction(i.PostID); err != nil {
 				return err
 			}
-			return errors.New("scrapeFromGQL is blocked")
+			return scrapeFailureWithAuth(errors.New("scrapeFromGQL is blocked"), authErr)
 		}
 		if err := scrapeRestriction(i.PostID); err != nil {
 			return err
 		}
-		return ErrNotFound
+		return scrapeFailureWithAuth(ErrNotFound, authErr)
 	}
 	if videoBlocked && !i.HasVideo() {
 		if mobileBody, mobileErr := scrapeFromGQLMobile(i.PostID); mobileErr == nil {
@@ -1203,6 +1280,15 @@ func (i *InstaData) scrapeData(allowAuth bool) error {
 			slog.Debug("Failed to upgrade video from mobile GraphQL fallback", "postID", i.PostID, "err", mobileErr)
 		}
 	}
+	// Logged-out GraphQL can expose a usable image/video shell while omitting
+	// the owner and caption. Public oEmbed is a separate metadata source and
+	// must enrich that partial item before Embed decides that the description is
+	// unavailable. Keep the already-resolved media, especially a video URL.
+	if needsPublicOEmbedEnrichment(i) {
+		if enrichErr := enrichPublicOEmbedMetadata(i); enrichErr != nil {
+			slog.Debug("Failed to enrich partial public metadata from oEmbed", "postID", i.PostID, "err", enrichErr)
+		}
+	}
 
 	// Failed to scrape from Embed
 	if len(i.Medias) == 0 {
@@ -1212,19 +1298,31 @@ func (i *InstaData) scrapeData(allowAuth bool) error {
 		} else {
 			slog.Debug("Failed to scrape data from public oEmbed fallback", "postID", i.PostID, "err", err)
 		}
+		var authErr error
 		if allowAuth {
-			if err := scrapeAuthHelperSingleflight(i); err == nil {
+			authErr = scrapeAuthHelperSingleflight(i)
+			if authErr == nil {
 				return nil
-			} else if err != ErrNotFound {
-				slog.Debug("Failed to scrape data from auth helper", "postID", i.PostID, "err", err)
+			} else if !errors.Is(authErr, ErrNotFound) {
+				slog.Debug("Failed to scrape data from auth helper", "postID", i.PostID, "err", authErr)
 			}
 		}
 		if err := scrapeRestriction(i.PostID); err != nil {
 			return err
 		}
-		return ErrNotFound
+		return scrapeFailureWithAuth(ErrNotFound, authErr)
 	}
 	return nil
+}
+
+func scrapeFailureWithAuth(scrapeErr, authErr error) error {
+	if authErr == nil || errors.Is(authErr, ErrNotFound) {
+		return scrapeErr
+	}
+	if errors.Is(authErr, ErrAuthUnavailable) {
+		return fmt.Errorf("%w; %v", scrapeErr, authErr)
+	}
+	return fmt.Errorf("%w; authenticated fallback unavailable: %v", scrapeErr, authErr)
 }
 
 func parseGraphQLMediaData(i *InstaData, gqlData gjson.Result) error {
@@ -1596,6 +1694,35 @@ func scrapePublicOEmbed(i *InstaData) error {
 	return nil
 }
 
+func enrichPublicOEmbedMetadata(i *InstaData) error {
+	if i == nil || !validPostID(i.PostID) || !needsPublicOEmbedEnrichment(i) {
+		return nil
+	}
+	candidate := &InstaData{PostID: i.PostID}
+	if err := scrapePublicOEmbed(candidate); err != nil {
+		return err
+	}
+	mergeAvailableMetadata(i, candidate)
+	if len(i.Medias) == 0 {
+		i.Medias = candidate.Medias
+	} else if len(candidate.Medias) > 0 && i.Medias[0].URL == "" {
+		i.Medias[0].URL = candidate.Medias[0].URL
+	} else if len(candidate.Medias) > 0 && i.Medias[0].IsVideo() && i.Medias[0].ThumbnailURL == "" {
+		i.Medias[0].ThumbnailURL = candidate.Medias[0].URL
+	}
+	return nil
+}
+
+func needsPublicOEmbedEnrichment(i *InstaData) bool {
+	if i == nil {
+		return false
+	}
+	if i.Username == "" || i.Caption == "" {
+		return true
+	}
+	return len(i.Medias) > 0 && i.Medias[0].IsVideo() && i.Medias[0].ThumbnailURL == ""
+}
+
 // Taken from https://github.com/PuerkitoBio/goquery
 // Modified to add new line every <br>
 func gqTextNewLine(s *goquery.Selection) string {
@@ -1715,6 +1842,7 @@ func scrapeAuthHelper(i *InstaData) error {
 		return ErrNotFound
 	}
 	if health := authHelperHealth(); health.checked && health.total > 0 && health.available <= 0 {
+		observability.Default.RecordAuthHelperSkipped(i.PostID, "pool_unavailable")
 		return fmt.Errorf("%w: exhausted (%d/%d available)", ErrAuthUnavailable, health.available, health.total)
 	}
 	base, err := url.Parse(AuthHelperURL)
@@ -1746,11 +1874,18 @@ func scrapeAuthHelper(i *InstaData) error {
 		if message == "" {
 			message = res.Status
 		}
+		if code != "" {
+			message += " (code: " + code + ")"
+		}
+		if gjson.GetBytes(body, "cache_hit").Bool() {
+			code = "cache_hit:" + code
+		}
 		err := authHelperResponseError(res.Status, message, code)
 		observability.Default.RecordAuthHelperResult(false, i.PostID, code, err)
 		return err
 	}
 	if !gjson.ValidBytes(body) || !gjson.GetBytes(body, "ok").Bool() {
+		observability.Default.RecordAuthHelperResult(false, i.PostID, "invalid_response", errors.New("auth helper returned invalid response"))
 		return errors.New("auth helper returned invalid response")
 	}
 	username := strings.TrimSpace(gjson.GetBytes(body, "username").String())
@@ -1761,6 +1896,7 @@ func scrapeAuthHelper(i *InstaData) error {
 	height := int(gjson.GetBytes(body, "height").Int())
 	mediaURL, err := url.Parse(thumbnail)
 	if err != nil || mediaURL.Host == "" || (mediaURL.Scheme != "http" && mediaURL.Scheme != "https") {
+		observability.Default.RecordAuthHelperResult(false, i.PostID, "invalid_response", errors.New("auth helper returned invalid thumbnail_url"))
 		return errors.New("auth helper returned invalid thumbnail_url")
 	}
 	if username == "" {
@@ -1778,7 +1914,11 @@ func scrapeAuthHelper(i *InstaData) error {
 	} else {
 		i.Medias = []Media{{TypeName: "GraphImage", URL: thumbnail}}
 	}
-	observability.Default.RecordAuthHelperResult(true, i.PostID, "", nil)
+	resultCode := ""
+	if gjson.GetBytes(body, "cache_hit").Bool() {
+		resultCode = "cache_hit"
+	}
+	observability.Default.RecordAuthHelperResult(true, i.PostID, resultCode, nil)
 	slog.Info("Data parsed from auth helper", "postID", i.PostID)
 	return nil
 }
@@ -2015,6 +2155,14 @@ func doGraphQLRequestHedged(req *http.Request, source string, attempts []graphQL
 }
 
 func doGraphQLAttempt(req *http.Request, source string, attempt graphQLClientAttempt) ([]byte, error) {
+	requestBytes := max(req.ContentLength, 0)
+	responseBytes := int64(0)
+	success := false
+	if attempt.proxy != "" {
+		defer func() {
+			observability.Default.RecordMetadataProxyResult(success, requestBytes, responseBytes)
+		}()
+	}
 	res, err := attempt.client.Do(req)
 	if err != nil || res == nil {
 		if err == nil {
@@ -2025,6 +2173,7 @@ func doGraphQLAttempt(req *http.Request, source string, attempt graphQLClientAtt
 		return nil, wrapped
 	}
 	body, err := readGraphQLResponseBody(res, source)
+	responseBytes = int64(len(body))
 	if err != nil {
 		if shouldCooldownGraphQLStatus(res.StatusCode) {
 			markPublicProxyFailure(attempt.proxy, err)
@@ -2036,6 +2185,7 @@ func doGraphQLAttempt(req *http.Request, source string, attempt graphQLClientAtt
 		markPublicProxyFailure(attempt.proxy, err)
 		return nil, err
 	}
+	success = true
 	return body, nil
 }
 

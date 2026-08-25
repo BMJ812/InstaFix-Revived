@@ -299,3 +299,35 @@ func TestMergeAvailableMetadataPreservesPublicStats(t *testing.T) {
 		t.Fatalf("stats were not preserved: %#v", auth)
 	}
 }
+
+func TestPartialMetadataMergePreservesExistingMedia(t *testing.T) {
+	item := &InstaData{
+		PostID: "DbPartialData",
+		Medias: []Media{{TypeName: "GraphImage", URL: "https://scontent.cdninstagram.com/reel-cover.jpg"}},
+	}
+	candidate := &InstaData{
+		PostID:   "DbPartialData",
+		Username: "creator",
+		Caption:  "caption",
+		Medias:   []Media{{TypeName: "GraphImage", URL: "https://scontent.cdninstagram.com/oembed.jpg"}},
+	}
+	mergeAvailableMetadata(item, candidate)
+	if item.Username != "creator" || item.Caption != "caption" {
+		t.Fatalf("metadata was not merged: %#v", item)
+	}
+	if got := item.Medias[0].URL; got != "https://scontent.cdninstagram.com/reel-cover.jpg" {
+		t.Fatalf("existing media was replaced by oEmbed thumbnail: %q", got)
+	}
+}
+
+func TestMergeMediaPresentationAddsImageFallbackToVideo(t *testing.T) {
+	dst := &InstaData{Medias: []Media{{TypeName: "GraphVideo", URL: "https://scontent.cdninstagram.com/video.mp4"}}}
+	src := &InstaData{Medias: []Media{{TypeName: "GraphImage", URL: "https://scontent.cdninstagram.com/poster.jpg", Width: 720, Height: 1280}}}
+
+	mergeMediaPresentation(dst, src)
+
+	media := dst.Medias[0]
+	if media.ThumbnailURL != "https://scontent.cdninstagram.com/poster.jpg" || media.Width != 720 || media.Height != 1280 {
+		t.Fatalf("video presentation metadata was not merged: %#v", media)
+	}
+}

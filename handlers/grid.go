@@ -167,7 +167,7 @@ func redirectGridFallback(w http.ResponseWriter, r *http.Request, postID string)
 	http.Redirect(w, r, "/images/"+postID+"/1", http.StatusFound)
 }
 
-func decodeGridImage(client *http.Client, mediaURL string) (image.Image, int64, error) {
+func decodeGridImage(client *http.Client, postID, mediaURL string) (image.Image, int64, error) {
 	req, err := http.NewRequest(http.MethodGet, mediaURL, http.NoBody)
 	if err != nil {
 		return nil, 0, err
@@ -263,7 +263,7 @@ func Grid(w http.ResponseWriter, r *http.Request) {
 		images := make([]image.Image, 0, len(mediaURLs))
 		var totalPixels int64
 		for _, mediaURL := range mediaURLs {
-			img, pixels, err := decodeGridImage(&client, mediaURL)
+			img, pixels, err := decodeGridImage(&client, postID, mediaURL)
 			if err != nil {
 				return false, err
 			}

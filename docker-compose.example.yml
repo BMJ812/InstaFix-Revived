@@ -6,11 +6,21 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Optional. Must point to localhost/loopback from the app container/network.
-      # AUTH_HELPER_URL: http://127.0.0.1:3200
-      PREVIEW_VIDEO_PROXY_ENABLED: "false"
+      # Recommended current runtime used by the public instance.
+      INSTAFIX_EXPERIMENT_MODE: stateless_cloudrun
+      INSTAFIX_EXPERIMENT_LABEL: self-hosted
+      INSTAFIX_PUBLIC_VIDEO_REFRESH_DIRECT: "true"
+      MAX_INLINE_VIDEO_BYTES: "20971520"
+      INSTAFIX_STATELESS_EDGE_TTL_SECONDS: "300"
+      INSTAFIX_STATELESS_CDN_EXPIRY_MARGIN_SECONDS: "1800"
+      # Optional operational Telegram report:
+      # TELEGRAM_BOT_TOKEN: ""
+      # TELEGRAM_CHAT_ID: ""
+      # DAILY_REPORT_HOUR_UTC: "0"
+      # REPORT_ADMIN_TOKEN: ""
 
-  # Optional authenticated fallback helper. Keep it local/private.
+  # Optional authenticated fallback helper for the legacy runtime. Keep it
+  # local/private because it can read Instagram session cookies.
   auth-helper:
     build: ./auth-helper
     image: instafix-auth-helper:local

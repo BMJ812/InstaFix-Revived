@@ -93,6 +93,38 @@ class VideoProxyHelpersTest(unittest.TestCase):
         app.cache_set(cache, "b", "expired", -1)
         self.assertIsNone(app.cache_get(cache, "b"))
 
+    def test_cached_auth_payload_marks_cache_hit_without_mutating_cache(self):
+        old_cache = dict(app.auth_success_cache)
+        try:
+            app.auth_success_cache.clear()
+            app.cache_set(app.auth_success_cache, "POSTID", {"ok": True, "username": "cached"}, 60)
+            payload = app.cached_auth_payload("POSTID")
+            self.assertTrue(payload["cache_hit"])
+            self.assertNotIn("cache_hit", app.auth_success_cache["POSTID"][1])
+        finally:
+            app.auth_success_cache.clear()
+            app.auth_success_cache.update(old_cache)
+
+    def test_oembed_uses_account_negative_cache_before_instagram_request(self):
+        old_success = dict(app.auth_success_cache)
+        old_negative = dict(app.auth_negative_cache)
+        account = app.CookieAccount("account-a", "sessionid=a; ds_user_id=a", "/tmp/a.cookie")
+        try:
+            app.auth_success_cache.clear()
+            app.auth_negative_cache.clear()
+            app.cache_negative("POSTID", "private_media", "cached private post", account.account_id)
+            with mock.patch("app.choose_cookie_account", return_value=account), mock.patch("app.requests.get") as request:
+                with self.assertRaises(app.HelperError) as raised:
+                    app.oembed("POSTID")
+            self.assertEqual(raised.exception.code, "private_media")
+            self.assertTrue(raised.exception.cached)
+            request.assert_not_called()
+        finally:
+            app.auth_success_cache.clear()
+            app.auth_success_cache.update(old_success)
+            app.auth_negative_cache.clear()
+            app.auth_negative_cache.update(old_negative)
+
     def test_auth_circuit_opens_for_login_required(self):
         old_until = app.auth_cooldown_until
         old_reason = app.auth_cooldown_reason
@@ -134,7 +166,7 @@ class VideoProxyHelpersTest(unittest.TestCase):
             app.account_cooldowns.clear()
             app.account_cooldowns["a"] = app.time.time() + 60
             with mock.patch("app.discover_cookie_accounts", return_value=[a, b]):
-                self.assertEqual(app.cookie_pool_health(), {"total": 2, "available": 1, "cooling_down": 1})
+                self.assertEqual(app.cookie_pool_health(), {"total": 2, "available": 1, "cooling_down": 1, "needs_login": 0})
         finally:
             app.account_cooldowns.clear()
             app.account_cooldowns.update(old_cooldowns)
@@ -228,6 +260,150 @@ class VideoProxyHelpersTest(unittest.TestCase):
             self.assertIn("media info fallback", str(raised.exception))
         finally:
             app.FETCH_MEDIA_INFO_FALLBACK = old_fallback
+
+    def test_extract_username_from_nested_json(self):
+        payload = {"config": {"viewer": {"id": "1", "username": "real.user_1"}}}
+
+        self.assertEqual(app.extract_username_from_json(payload), "real.user_1")
+
+    def test_cookie_homepage_fetches_username_when_html_unknown(self):
+        account = app.CookieAccount("a", "sessionid=a; csrftoken=c; ds_user_id=a", "/tmp/a.cookie")
+        homepage = mock.Mock(status_code=200, url="https://www.instagram.com/")
+        homepage.iter_content.return_value = [b"<html>logged in app shell without username</html>"]
+        current = mock.Mock(status_code=400, headers={}, url="https://www.instagram.com/api/v1/accounts/current_user/?edit=true")
+        current.iter_content.return_value = [b'{"message":"useragent mismatch","status":"fail"}']
+        shared = mock.Mock(status_code=200, headers={}, url="https://www.instagram.com/api/v1/web/data/shared_data/")
+        shared.iter_content.return_value = [b'{"config":{"viewer":{"username":"real.user_1"}}}']
+        old_rate = app.auth_rate_count
+        old_window = app.auth_rate_window
+        try:
+            app.auth_rate_count = 0
+            app.auth_rate_window = int(app.time.time() // 60)
+            with mock.patch("app.find_cookie_account", return_value=account), mock.patch("app.requests.get", side_effect=[homepage, current, shared]), mock.patch("app.fetch_media_info", return_value={"id": "1"}):
+                result = app.test_cookie_homepage("a")
+            self.assertEqual(result["username"], "real.user_1")
+        finally:
+            app.auth_rate_count = old_rate
+            app.auth_rate_window = old_window
+
+    def test_cookie_homepage_rejects_anonymous_200_without_identity(self):
+        account = app.CookieAccount("a", "sessionid=a; csrftoken=c; ds_user_id=a", "/tmp/a.cookie")
+        homepage = mock.Mock(status_code=200, url="https://www.instagram.com/")
+        homepage.iter_content.return_value = [b"<html>anonymous app shell</html>"]
+        anonymous_api = []
+        for _ in range(3):
+            response = mock.Mock(status_code=200, headers={}, url="https://www.instagram.com/")
+            response.iter_content.return_value = [b'{"status":"ok"}']
+            anonymous_api.append(response)
+        old_rate = app.auth_rate_count
+        old_window = app.auth_rate_window
+        old_quarantines = dict(app.account_quarantines)
+        old_loaded = app.account_quarantines_loaded
+        try:
+            app.auth_rate_count = 0
+            app.auth_rate_window = int(app.time.time() // 60)
+            app.account_quarantines.clear()
+            app.account_quarantines_loaded = True
+            with mock.patch("app.find_cookie_account", return_value=account), mock.patch("app.requests.get", side_effect=[homepage] + anonymous_api):
+                with self.assertRaisesRegex(app.HelperError, "identity could not be confirmed") as raised:
+                    app.test_cookie_homepage("a")
+            self.assertEqual(raised.exception.code, "session_invalid")
+            self.assertTrue(app.account_needs_login("a"))
+        finally:
+            app.auth_rate_count = old_rate
+            app.auth_rate_window = old_window
+            app.account_quarantines.clear()
+            app.account_quarantines.update(old_quarantines)
+            app.account_quarantines_loaded = old_loaded
+
+    def test_cookie_homepage_rejects_session_that_media_api_cannot_use(self):
+        account = app.CookieAccount("a", "sessionid=a; csrftoken=c; ds_user_id=a", "/tmp/a.cookie")
+        homepage = mock.Mock(status_code=200, url="https://www.instagram.com/")
+        homepage.iter_content.return_value = [b'<html>"username":"real.user_1"</html>']
+        old_rate = app.auth_rate_count
+        old_window = app.auth_rate_window
+        old_quarantines = dict(app.account_quarantines)
+        old_loaded = app.account_quarantines_loaded
+        try:
+            app.auth_rate_count = 0
+            app.auth_rate_window = int(app.time.time() // 60)
+            app.account_quarantines.clear()
+            app.account_quarantines_loaded = True
+            with mock.patch("app.find_cookie_account", return_value=account), mock.patch("app.requests.get", return_value=homepage), mock.patch(
+                "app.fetch_media_info", side_effect=app.HelperError("login_required", "media API rejected session")
+            ):
+                with self.assertRaisesRegex(app.HelperError, "media API probe failed") as raised:
+                    app.test_cookie_homepage("a")
+            self.assertEqual(raised.exception.code, "login_required")
+            self.assertTrue(app.account_needs_login("a"))
+        finally:
+            app.auth_rate_count = old_rate
+            app.auth_rate_window = old_window
+            app.account_quarantines.clear()
+            app.account_quarantines.update(old_quarantines)
+            app.account_quarantines_loaded = old_loaded
+
+    def test_cookie_homepage_accepts_restricted_probe_when_session_is_authenticated(self):
+        account = app.CookieAccount("a", "sessionid=a; csrftoken=c; ds_user_id=a", "/tmp/a.cookie")
+        homepage = mock.Mock(status_code=200, url="https://www.instagram.com/")
+        homepage.iter_content.return_value = [b'<html>"username":"real.user_1"</html>']
+        old_rate = app.auth_rate_count
+        old_window = app.auth_rate_window
+        old_quarantines = dict(app.account_quarantines)
+        old_loaded = app.account_quarantines_loaded
+        try:
+            app.auth_rate_count = 0
+            app.auth_rate_window = int(app.time.time() // 60)
+            app.account_quarantines.clear()
+            app.account_quarantines_loaded = True
+            with mock.patch("app.find_cookie_account", return_value=account), mock.patch("app.requests.get", return_value=homepage), mock.patch(
+                "app.fetch_media_info", side_effect=app.HelperError("geoblock_required", "probe content is restricted")
+            ):
+                result = app.test_cookie_homepage("a")
+            self.assertEqual(result["code"], "ok")
+            self.assertFalse(app.account_needs_login("a"))
+        finally:
+            app.auth_rate_count = old_rate
+            app.auth_rate_window = old_window
+            app.account_quarantines.clear()
+            app.account_quarantines.update(old_quarantines)
+            app.account_quarantines_loaded = old_loaded
+
+    def test_update_cookie_validates_before_replacing_slot(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = app.os.path.join(directory, "slot.cookie")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("sessionid=old; ds_user_id=old; csrftoken=old\n")
+            with mock.patch("app.cookie_path_for_slot", return_value=(path, "ig_old")), mock.patch(
+                "app.test_cookie_account", side_effect=app.HelperError("session_invalid", "candidate rejected")
+            ):
+                with self.assertRaisesRegex(app.HelperError, "candidate rejected"):
+                    app.update_cookie_slot("slot", "sessionid=new; ds_user_id=new; csrftoken=new")
+            with open(path, encoding="utf-8") as f:
+                self.assertIn("sessionid=old", f.read())
+
+    def test_update_cookie_rejects_wrong_account_before_replacing_slot(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = app.os.path.join(directory, "ExpectedUser.cookie")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("sessionid=old; ds_user_id=old; csrftoken=old\n")
+            validation = {"username": "DifferentUser", "status": 200, "code": "ok"}
+            with mock.patch("app.cookie_path_for_slot", return_value=(path, "ig_old")), mock.patch(
+                "app.test_cookie_account", return_value=validation
+            ):
+                with self.assertRaisesRegex(app.HelperError, "expects @expecteduser") as raised:
+                    app.update_cookie_slot(
+                        "ExpectedUser",
+                        "sessionid=new; ds_user_id=new; csrftoken=new",
+                        "ExpectedUser",
+                    )
+            self.assertEqual(raised.exception.code, "account_mismatch")
+            with open(path, encoding="utf-8") as f:
+                self.assertIn("sessionid=old", f.read())
 
 
 if __name__ == "__main__":

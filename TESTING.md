@@ -93,3 +93,36 @@ python -m unittest discover -s auth-helper -p 'test_*.py'
 ```
 
 Run `go test ./...` when Go is available.
+
+## Telegram Reel regression checks
+
+The recommended current runtime is the stateless path:
+
+```sh
+docker run --rm -p 127.0.0.1:3100:3000 \
+  -e INSTAFIX_EXPERIMENT_MODE=stateless_cloudrun \
+  -e INSTAFIX_PUBLIC_VIDEO_REFRESH_DIRECT=true \
+  -e MAX_INLINE_VIDEO_BYTES=20971520 \
+  instafix-revived:test
+```
+
+For Telegram Reel tests, verify both sides of the measured boundary:
+
+- an original at or below `20,971,520` bytes should remain on the normal offload/direct path;
+- an original above `20,971,520` bytes should advertise `?compact=av4`;
+- a compact smart result must remain below the boundary (the encoder target is `20,471,520` bytes);
+- diagnostics or cache-busting tests that need guaranteed fresh Telegram ingestion should use a unique media **path**, not only a changed query string.
+
+The full investigation and current production policy are documented in [`docs/telegram-reel-previews.md`](docs/telegram-reel-previews.md).
+
+Run the complete Go suite before publishing changes:
+
+```sh
+go test ./...
+```
+
+Also validate the Cloudflare Worker syntax when it changes:
+
+```sh
+node --check deploy/cloudflare-worker/src/index.js
+```

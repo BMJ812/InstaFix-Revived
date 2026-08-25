@@ -37,6 +37,16 @@ Add `7` to the Instagram URL and your chat app gets a cleaner embed:
 - Emits additional image tags for carousel previews where clients support them.
 - Includes an optional selective video proxy for preview bots, disabled by default.
 - Avoids exposing direct Instagram CDN URLs in the minimal homepage JSON preview API.
+- Uses a Telegram-specific oversized-Reel fallback: originals at or below 20 MiB stay direct; larger fresh previews are compacted below Telegram's measured WebPage video boundary.
+- Can emit an optional daily Telegram operations report with per-Reel decisions (`direct`, `compact`, `expected image`, `blocked`) and media sizes.
+
+## Telegram Reel previews
+
+Telegram's fresh WebPage video ingestion was measured at an exact **20 MiB** boundary: `20,971,520` bytes is accepted, while `20,971,521` bytes is not attached as the preview video document. InstaFix Revived therefore keeps small originals untouched and uses a fast-first compact path for larger Reels, with a smart encode targeting about 500 KB below the boundary.
+
+The investigation also ruled out several misleading causes such as OG tag order, redirects, Cloudflare proxying and simple hostname changes. Older >20 MiB previews can still appear to work when Telegram already has a historical media document cached.
+
+See [Telegram Reel previews: current design and the 20 MiB boundary](docs/telegram-reel-previews.md) for the measured behavior, fallback design, cache notes and monitoring fields.
 
 ## Why this exists
 

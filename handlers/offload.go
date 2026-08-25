@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	scraper "instafix/handlers/scraper"
+	"instafix/observability"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,10 +16,11 @@ import (
 )
 
 var (
-	offloadGetDataPreferVideo     = scraper.GetDataPreferVideo
-	offloadRefreshDataPreferVideo = scraper.RefreshDataPreferVideo
-	offloadMediaURLAllowed        = scraper.IsAllowedMediaURL
-	offloadVideoClient            = &http.Client{
+	offloadGetDataPreferVideo      = scraper.GetDataPreferVideo
+	offloadGetDataPreferVideoQuiet = scraper.GetDataPreferVideoQuiet
+	offloadRefreshDataPreferVideo  = scraper.RefreshDataPreferVideo
+	offloadMediaURLAllowed         = scraper.IsAllowedMediaURL
+	offloadVideoClient             = &http.Client{
 		Transport: previewVideoProxyClient.Transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 3 {
@@ -36,14 +38,23 @@ var (
 // Images retain the inexpensive redirect behavior. Videos are streamed so
 // preview clients never receive a redirect as their MP4 target.
 func Offload(w http.ResponseWriter, r *http.Request) {
+	if rejectStatelessLegacyMedia(w) {
+		return
+	}
 	postID := chi.URLParam(r, "postID")
 	mediaNum, err := strconv.Atoi(strings.TrimSuffix(chi.URLParam(r, "mediaNum"), ".mp4"))
 	if err != nil || mediaNum < 1 {
 		http.Error(w, "invalid media number", http.StatusBadRequest)
 		return
 	}
+	if TryOGInstagramClientMediaRedirect(w, r, postID, mediaNum) {
+		return
+	}
+	if TryOGInstagramOffloadProxy(w, r) {
+		return
+	}
 
-	item, err := offloadGetDataPreferVideo(postID)
+	item, err := getOffloadData(r, postID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -55,34 +66,36 @@ func Offload(w http.ResponseWriter, r *http.Request) {
 
 	media := item.Medias[mediaNum-1]
 	target := media.URL
-	if r.URL.Query().Has("thumbnail") && media.ThumbnailURL != "" {
-		target = media.ThumbnailURL
+	thumbnail := r.URL.Query().Has("thumbnail")
+	if thumbnail {
+		if media.ThumbnailURL != "" {
+			target = media.ThumbnailURL
+		}
 	}
 	if target == "" {
 		http.Error(w, "media URL unavailable", http.StatusNotFound)
 		return
 	}
 	if !r.URL.Query().Has("thumbnail") && media.IsVideo() {
-		if shouldRedirectPreviewVideo(r.UserAgent()) &&
-			r.Method != http.MethodHead &&
-			r.Header.Get("Range") == "" {
+		if r.URL.Query().Get("delivery") == telegramCDNRedirectProbeDelivery || shouldRedirectPreviewVideo(r.UserAgent()) {
 			redirectOffloadVideo(w, r, postID, mediaNum, target)
 			return
 		}
 		streamOffloadVideo(w, r, postID, mediaNum, target)
 		return
 	}
-
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Location", target)
 	w.WriteHeader(http.StatusFound)
+	slog.Info("offload image redirected", "postID", postID, "media_index", mediaNum, "thumbnail", thumbnail, "status", http.StatusFound)
 }
 
 func redirectOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, mediaNum int, videoURL string) {
 	target, err := validatedRedirectVideoURL(r, postID, mediaNum, videoURL)
 	if err != nil {
 		slog.Warn("offload video redirect unavailable after refresh", "postID", postID, "err", err)
+		observability.Default.RecordMediaStream(r.Method, r.Header.Get("Range") != "", http.StatusBadGateway, 0, err)
 		http.Error(w, "video redirect temporarily unavailable", http.StatusBadGateway)
 		return
 	}
@@ -131,7 +144,45 @@ func probeVideoURL(r *http.Request, videoURL string) error {
 	return err
 }
 
+func getOffloadData(r *http.Request, postID string) (*scraper.InstaData, error) {
+	if isPreviewMediaBot(r.UserAgent()) {
+		return offloadGetDataPreferVideo(postID)
+	}
+	item, err := offloadGetDataPreferVideoQuiet(postID)
+	if err != nil && scraper.AuthHelperURL != "" {
+		observability.Default.RecordAuthHelperSkipped(postID, "untrusted_media_client")
+	}
+	return item, err
+}
+
+func isPreviewMediaBot(userAgent string) bool {
+	ua := strings.ToLower(userAgent)
+	for _, allowed := range PreviewVideoProxyUserAgents {
+		if allowed == "*" || strings.Contains(ua, allowed) {
+			return true
+		}
+	}
+	return false
+}
+
 func streamOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, mediaNum int, videoURL string) {
+	finishStream := observability.Default.BeginMediaStream()
+	defer finishStream()
+	// OGInstagram's edge offload path ignores Telegram's Range probe, fetches the
+	// upstream object as a normal GET, and exposes a same-origin 200 response with
+	// minimal headers. Keep the explicit probe switch, but also use that behavior
+	// automatically for the stable .mp4 URLs advertised in our Open Graph tags.
+	minimalTelegramStream := isTelegramBot(r.UserAgent()) &&
+		(r.URL.Query().Get("delivery") == telegramMinimalStreamDelivery ||
+			strings.HasSuffix(strings.ToLower(r.URL.Path), ".mp4"))
+	upstreamRequest := r
+	if minimalTelegramStream {
+		upstreamRequest = r.Clone(r.Context())
+		upstreamRequest.Method = http.MethodGet
+		upstreamRequest.Header = r.Header.Clone()
+		upstreamRequest.Header.Del("Range")
+	}
+
 	// Full Reel downloads can legitimately take longer than the server's
 	// page-response WriteTimeout. Clear only this response deadline while the
 	// upstream body is streamed; request cancellation still stops the copy.
@@ -139,48 +190,67 @@ func streamOffloadVideo(w http.ResponseWriter, r *http.Request, postID string, m
 		slog.Debug("offload video write deadline unchanged", "postID", postID, "err", err)
 	}
 
-	res, err := requestVideoResponse(r, videoURL)
+	res, err := requestVideoResponse(upstreamRequest, videoURL)
 	if err != nil {
 		slog.Info("offload video URL needs refresh", "postID", postID, "err", err)
-		refreshed, refreshErr := offloadRefreshDataPreferVideo(postID)
-		if refreshErr == nil && mediaNum <= len(refreshed.Medias) {
-			media := refreshed.Medias[mediaNum-1]
-			if media.IsVideo() && media.URL != "" && media.URL != videoURL {
-				res, err = requestVideoResponse(r, media.URL)
-			} else {
-				err = errors.New("refreshed media did not contain a new video URL")
+		if isPreviewMediaBot(r.UserAgent()) {
+			refreshed, refreshErr := offloadRefreshDataPreferVideo(postID)
+			if refreshErr == nil && mediaNum <= len(refreshed.Medias) {
+				media := refreshed.Medias[mediaNum-1]
+				if media.IsVideo() && media.URL != "" && media.URL != videoURL {
+					res, err = requestVideoResponse(upstreamRequest, media.URL)
+				} else {
+					err = errors.New("refreshed media did not contain a new video URL")
+				}
+			} else if refreshErr != nil {
+				err = fmt.Errorf("refresh failed: %w", refreshErr)
 			}
-		} else if refreshErr != nil {
-			err = fmt.Errorf("refresh failed: %w", refreshErr)
+		} else {
+			observability.Default.RecordAuthHelperSkipped(postID, "untrusted_media_refresh")
 		}
 	}
 	if err != nil || res == nil {
 		slog.Warn("offload video unavailable after refresh", "postID", postID, "err", err)
+		observability.Default.RecordMediaStream(r.Method, r.Header.Get("Range") != "", http.StatusBadGateway, 0, err)
 		http.Error(w, "video stream temporarily unavailable", http.StatusBadGateway)
 		return
 	}
 	defer res.Body.Close()
 
-	copyVideoResponseHeaders(w.Header(), res.Header)
-	if w.Header().Get("Content-Type") == "" {
-		w.Header().Set("Content-Type", "video/mp4")
+	if minimalTelegramStream {
+		contentType := res.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "video/mp4"
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
+		w.Header().Set("X-Instagram7-Video-Stream", "telegram-minimal")
+	} else {
+		copyVideoResponseHeaders(w.Header(), res.Header)
+		if w.Header().Get("Content-Type") == "" {
+			w.Header().Set("Content-Type", "video/mp4")
+		}
+		if w.Header().Get("Accept-Ranges") == "" {
+			w.Header().Set("Accept-Ranges", "bytes")
+		}
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Header().Set("X-Instagram7-Video-Stream", "direct")
 	}
-	if w.Header().Get("Accept-Ranges") == "" {
-		w.Header().Set("Accept-Ranges", "bytes")
-	}
-	w.Header().Set("Cache-Control", "public, max-age=300")
-	w.Header().Set("X-InstaFix-Video-Stream", "direct")
 	w.WriteHeader(res.StatusCode)
 	if r.Method == http.MethodHead {
+		observability.Default.RecordMediaStream(r.Method, r.Header.Get("Range") != "", res.StatusCode, 0, nil)
 		slog.Info("offload video HEAD served", "postID", postID, "status", res.StatusCode)
 		return
 	}
 
 	written, copyErr := io.CopyBuffer(w, res.Body, make([]byte, 64*1024))
 	if copyErr != nil {
+		observability.Default.RecordMediaStream(r.Method, r.Header.Get("Range") != "", res.StatusCode, written, copyErr)
 		slog.Warn("offload video client copy failed", "postID", postID, "bytes", written, "err", copyErr)
 		return
 	}
+	observability.Default.RecordMediaStream(r.Method, r.Header.Get("Range") != "", res.StatusCode, written, nil)
 	slog.Info("offload video streamed", "postID", postID, "status", res.StatusCode, "bytes", written, "range", r.Header.Get("Range") != "")
 }
 
@@ -205,8 +275,8 @@ func requestVideoResponse(r *http.Request, videoURL string) (*http.Response, err
 	if probeRange == "" {
 		probeRange = "bytes=0-0"
 	}
-	probe, probeErr := doVideoRequest(r, http.MethodGet, videoURL, probeRange)
-	return probe, responseError(probe, probeErr)
+	returnRes, returnErr := doVideoRequest(r, http.MethodGet, videoURL, probeRange)
+	return returnRes, responseError(returnRes, returnErr)
 }
 
 func doVideoRequest(r *http.Request, method, videoURL, rangeHeader string) (*http.Response, error) {

@@ -64,10 +64,49 @@ type windowCounter struct {
 }
 
 type routeInfo struct {
-	cost       routeCost
-	postID     string
-	hasPostID  bool
-	checkCache bool
+	cost            routeCost
+	postID          string
+	hasPostID       bool
+	checkCache      bool
+	modernShortcode bool
+	numericStoryID  bool
+}
+
+func validatePublicationIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		info := classifyRequest(r.URL.Path)
+		if info.hasPostID && !validRoutePostID(r, info) {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Error(w, "invalid Instagram publication ID", http.StatusBadRequest)
+			slog.Info("invalid Instagram publication ID rejected", "path", r.URL.Path, "postID", info.postID)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func validRoutePostID(r *http.Request, info routeInfo) bool {
+	if info.numericStoryID {
+		if len(info.postID) < 1 || len(info.postID) > 19 {
+			return false
+		}
+		for _, char := range info.postID {
+			if char < '0' || char > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	if !validPublicPostID(info.postID) {
+		return false
+	}
+	modern := info.modernShortcode
+	if info.cost == costAPI {
+		kind := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("kind")))
+		prefer := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("prefer")))
+		modern = kind == "reel" || prefer == "video"
+	}
+	return !modern || len(info.postID) == 11
 }
 
 func newRequestProtectorFromEnv() *requestProtector {
@@ -267,13 +306,18 @@ func classifyRequest(path string) routeInfo {
 		return routeInfo{cost: costGrid, postID: partAt(parts, 1), hasPostID: len(parts) >= 2, checkCache: true}
 	case "oembed":
 		return routeInfo{cost: costOEmb}
-	case "p", "reel", "reels", "tv":
+	case "p":
 		return routeInfo{cost: costEmbed, postID: partAt(parts, 1), hasPostID: len(parts) >= 2, checkCache: true}
+	case "reel", "reels", "tv":
+		return routeInfo{cost: costEmbed, postID: partAt(parts, 1), hasPostID: len(parts) >= 2, checkCache: true, modernShortcode: true}
 	case "stories":
-		return routeInfo{cost: costEmbed, postID: partAt(parts, 2), hasPostID: len(parts) >= 3, checkCache: true}
+		return routeInfo{cost: costEmbed, postID: partAt(parts, 2), hasPostID: len(parts) >= 3, checkCache: true, numericStoryID: true}
 	default:
-		if len(parts) >= 3 && (parts[1] == "p" || parts[1] == "reel") {
+		if len(parts) >= 3 && parts[1] == "p" {
 			return routeInfo{cost: costEmbed, postID: parts[2], hasPostID: true, checkCache: true}
+		}
+		if len(parts) >= 3 && parts[1] == "reel" {
+			return routeInfo{cost: costEmbed, postID: parts[2], hasPostID: true, checkCache: true, modernShortcode: true}
 		}
 		return routeInfo{cost: costOther}
 	}
@@ -287,7 +331,10 @@ func partAt(parts []string, idx int) string {
 }
 
 func validPublicPostID(postID string) bool {
-	if len(postID) < 6 || len(postID) > 32 {
+	// Instagram shortcodes are unpadded URL-safe base64 encodings of numeric
+	// media IDs. Very old /p/ publications can be as short as one character,
+	// while a 64-bit media ID needs at most eleven characters.
+	if len(postID) < 1 || len(postID) > 11 {
 		return false
 	}
 	for _, r := range postID {

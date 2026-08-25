@@ -33,11 +33,25 @@
 !.github/assets/*.jpg
 !scripts/*.yml
 !scripts/*.yaml
+!scripts/*.py
+!BingSiteAuth.xml
+!deploy/cloudflare-worker/
+!deploy/cloudflare-worker/src/
+!deploy/cloudflare-worker/src/*.js
+!deploy/cloudflare-worker/wrangler.jsonc
+
+# Keep the two public test/demo assets required by the current Dockerfile.
+/video/instagram7-reel/**
+!/video/instagram7-reel/out/
+!/video/instagram7-reel/out/instagram7-test-reel.mp4
+!/video/instagram7-reel/out/instagram7-test-reel-poster.webp
 
 # Never track local/session secrets.
 secrets/
 **/secrets/
 *cookie*
+!handlers/admin_cookies.go
+!handlers/admin_cookies_test.go
 *.env
 !.env.example
 

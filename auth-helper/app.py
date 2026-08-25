@@ -1,6 +1,7 @@
 import contextlib
 import glob
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -38,7 +39,12 @@ VIDEO_PROXY_UPSTREAM_CHUNK_BYTES = int(os.environ.get("AUTH_HELPER_VIDEO_PROXY_U
 VIDEO_PROXY_UPSTREAM_CHUNK_TIMEOUT = float(os.environ.get("AUTH_HELPER_VIDEO_PROXY_UPSTREAM_CHUNK_TIMEOUT_SECONDS", "6"))
 AUTH_JSON_MAX_BYTES = int(os.environ.get("AUTH_HELPER_JSON_MAX_BYTES", "1048576"))
 AUTH_CACHE_MAX_ENTRIES = int(os.environ.get("AUTH_HELPER_CACHE_MAX_ENTRIES", "512"))
+COOKIE_ADMIN_TOKEN = os.environ.get("COOKIE_ADMIN_TOKEN", "").strip()
+COOKIE_ADMIN_MAX_BYTES = int(os.environ.get("COOKIE_ADMIN_MAX_BYTES", "65536"))
+COOKIE_STATE_FILE = os.environ.get("AUTH_HELPER_COOKIE_STATE_FILE", "").strip()
+COOKIE_VALIDATION_POST_ID = os.environ.get("AUTH_HELPER_COOKIE_VALIDATION_POST_ID", "DW9rpAdCeCK").strip()
 POST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,32}$")
+COOKIE_SLOT_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
 SHORTCODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 VIDEO_PROXY_ALLOWED_HOST_SUFFIXES = (".cdninstagram.com", ".fbcdn.net")
 CONTENT_RANGE_RE = re.compile(r"^bytes\s+(\d+)-(\d+)/(\d+|\*)$", re.IGNORECASE)
@@ -55,22 +61,29 @@ auth_cooldown_reason = ""
 auth_cache_lock = threading.Lock()
 auth_success_cache = {}
 auth_negative_cache = {}
+account_history_lock = threading.Lock()
+account_history = {}
 cookie_pool_lock = threading.Lock()
 cookie_pool = []
 cookie_pool_loaded_at = 0.0
 cookie_cursor = 0
 account_cooldowns = {}
+account_quarantines = {}
+account_quarantines_loaded = False
 video_proxy_semaphore = threading.BoundedSemaphore(max(1, VIDEO_PROXY_MAX_CONCURRENT))
 
-AUTH_CIRCUIT_CODES = {"login_required", "checkpoint_required", "challenge_required", "cookie_missing"}
+AUTH_CIRCUIT_CODES = {"login_required", "checkpoint_required", "challenge_required", "cookie_missing", "session_invalid"}
+ACCOUNT_QUARANTINE_CODES = {"login_required", "checkpoint_required", "challenge_required", "cookie_missing", "session_invalid"}
+COOKIE_MEDIA_PROBE_ACCEPTED_RESTRICTIONS = {"geoblock_required", "private_media"}
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 
 
 class HelperError(Exception):
-    def __init__(self, code, message, status=None):
+    def __init__(self, code, message, status=None, cached=False):
         super().__init__(message)
         self.code = code
         self.status = status
+        self.cached = cached
 
 
 class CookieAccount:
@@ -160,6 +173,75 @@ def cookie_account_status(account_id):
     return remaining
 
 
+def load_account_quarantines():
+    global account_quarantines_loaded, account_quarantines
+    with cookie_pool_lock:
+        if account_quarantines_loaded:
+            return dict(account_quarantines)
+        loaded = {}
+        if COOKIE_STATE_FILE:
+            try:
+                with open(COOKIE_STATE_FILE, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                for account_id, item in (payload.get("needs_login") or {}).items():
+                    if account_id:
+                        loaded[str(account_id)] = {
+                            "code": str((item or {}).get("code") or "session_invalid")[:80],
+                            "at": str((item or {}).get("at") or "")[:80],
+                        }
+            except FileNotFoundError:
+                pass
+            except Exception as exc:
+                log("warn", "cookie state load failed", error=str(exc)[:160])
+        account_quarantines = loaded
+        account_quarantines_loaded = True
+        return dict(account_quarantines)
+
+
+def persist_account_quarantines():
+    if not COOKIE_STATE_FILE:
+        return
+    with cookie_pool_lock:
+        payload = {"needs_login": dict(account_quarantines)}
+    directory = os.path.dirname(COOKIE_STATE_FILE)
+    if directory:
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+    tmp = COOKIE_STATE_FILE + ".tmp." + str(os.getpid())
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, COOKIE_STATE_FILE)
+
+
+def account_needs_login(account_id):
+    return account_id in load_account_quarantines()
+
+
+def quarantine_account(account_id, code):
+    if not account_id or code not in ACCOUNT_QUARANTINE_CODES:
+        return
+    load_account_quarantines()
+    with cookie_pool_lock:
+        account_quarantines[account_id] = {"code": code, "at": utc_now_text()}
+    persist_account_quarantines()
+
+
+def clear_account_quarantine(account_id):
+    if not account_id:
+        return
+    load_account_quarantines()
+    changed = False
+    with cookie_pool_lock:
+        if account_id in account_quarantines:
+            account_quarantines.pop(account_id, None)
+            changed = True
+    if changed:
+        persist_account_quarantines()
+
+
 def cookie_account_slot(account):
     name = os.path.basename(account.source or account.account_id)
     for suffix in (".cookie", ".txt"):
@@ -173,14 +255,174 @@ def cookie_accounts_status():
     items = []
     for account in accounts:
         cooldown = cookie_account_status(account.account_id)
+        needs_login = account_needs_login(account.account_id)
+        history = account_history_snapshot(account.account_id)
         items.append({
             "account_id": account.account_id,
             "slot": cookie_account_slot(account),
             "file": os.path.basename(account.source or ""),
-            "available": cooldown <= 0,
+            "available": cooldown <= 0 and not needs_login,
+            "needs_login": needs_login,
             "cooldown_remaining_seconds": cooldown,
+            "username": history.get("username", ""),
+            "last_success_at": history.get("last_success_at", ""),
+            "last_failure_at": history.get("last_failure_at", ""),
+            "last_error_code": history.get("last_error_code", ""),
+            "last_error_message": history.get("last_error_message", ""),
+            "consecutive_failures": history.get("consecutive_failures", 0),
+            "last_test_at": history.get("last_test_at", ""),
+            "last_test_code": history.get("last_test_code", ""),
         })
     return items
+
+
+def utc_now_text():
+    return time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+
+
+def account_history_snapshot(account_id):
+    with account_history_lock:
+        return dict(account_history.get(account_id, {}))
+
+
+def record_account_success(account, username="", source="auth"):
+    if account is None or not account.account_id:
+        return
+    with account_history_lock:
+        item = dict(account_history.get(account.account_id, {}))
+        item["slot"] = cookie_account_slot(account)
+        item["file"] = os.path.basename(account.source or "")
+        item["last_success_at"] = utc_now_text()
+        item["last_success_source"] = source
+        item["last_error_code"] = ""
+        item["last_error_message"] = ""
+        item["consecutive_failures"] = 0
+        if username:
+            item["username"] = str(username)[:80]
+        account_history[account.account_id] = item
+
+
+def record_account_failure(account, code, message="", source="auth"):
+    account_id = account.account_id if isinstance(account, CookieAccount) else str(account or "")
+    if not account_id:
+        return
+    with account_history_lock:
+        item = dict(account_history.get(account_id, {}))
+        if isinstance(account, CookieAccount):
+            item["slot"] = cookie_account_slot(account)
+            item["file"] = os.path.basename(account.source or "")
+        item["last_failure_at"] = utc_now_text()
+        item["last_failure_source"] = source
+        item["last_error_code"] = str(code or "auth_failed")[:80]
+        item["last_error_message"] = str(message or "")[:200]
+        item["consecutive_failures"] = int(item.get("consecutive_failures") or 0) + 1
+        account_history[account_id] = item
+
+
+def record_account_test(account, code, username="", message=""):
+    if account is None or not account.account_id:
+        return
+    with account_history_lock:
+        item = dict(account_history.get(account.account_id, {}))
+        item["slot"] = cookie_account_slot(account)
+        item["file"] = os.path.basename(account.source or "")
+        item["last_test_at"] = utc_now_text()
+        item["last_test_code"] = str(code or "")[:80]
+        if username:
+            item["username"] = str(username)[:80]
+        if code != "ok":
+            item["last_error_code"] = str(code or "test_failed")[:80]
+            item["last_error_message"] = str(message or "")[:200]
+            item["last_failure_at"] = item["last_test_at"]
+            item["last_failure_source"] = "homepage_test"
+            item["consecutive_failures"] = int(item.get("consecutive_failures") or 0) + 1
+        else:
+            item["last_success_at"] = item["last_test_at"]
+            item["last_success_source"] = "homepage_test"
+            item["last_error_code"] = ""
+            item["last_error_message"] = ""
+            item["consecutive_failures"] = 0
+        account_history[account.account_id] = item
+
+
+def clear_auth_cooldown():
+    global auth_cooldown_until, auth_cooldown_reason
+    with auth_state_lock:
+        auth_cooldown_until = 0.0
+        auth_cooldown_reason = ""
+
+
+def clear_cookie_cooldown(account_id):
+    if not account_id:
+        return
+    with cookie_pool_lock:
+        account_cooldowns.pop(account_id, None)
+
+
+def cookie_path_for_slot(slot):
+    slot = str(slot or "").strip()
+    if not COOKIE_SLOT_RE.match(slot):
+        raise HelperError("invalid_slot", "invalid cookie slot")
+    account = find_cookie_account(slot)
+    if account is not None and account.source:
+        return account.source, account.account_id
+    if not COOKIE_DIR:
+        raise HelperError("cookie_dir_missing", "cookie pool directory is not configured")
+    filename = slot if slot.endswith((".cookie", ".txt")) else slot + ".cookie"
+    path = os.path.abspath(os.path.join(COOKIE_DIR, filename))
+    base = os.path.abspath(COOKIE_DIR)
+    if not (path == base or path.startswith(base + os.sep)):
+        raise HelperError("invalid_slot", "invalid cookie slot path")
+    return path, ""
+
+
+def normalize_instagram_username(value):
+    return str(value or "").strip().lstrip("@").lower()
+
+
+def update_cookie_slot(slot, raw_cookie, expected_username=""):
+    cookie = normalize_cookie(raw_cookie)
+    if not cookie:
+        raise HelperError("cookie_missing", "cookie is empty")
+    if len(cookie.encode("utf-8", "ignore")) > COOKIE_ADMIN_MAX_BYTES:
+        raise HelperError("cookie_too_large", "cookie is too large")
+    if "sessionid=" not in cookie:
+        raise HelperError("cookie_missing", "cookie does not contain sessionid")
+    path, old_account_id = cookie_path_for_slot(slot)
+    candidate = CookieAccount(cookie_account_id(cookie, path), cookie, path)
+    validation = test_cookie_account(candidate, quarantine_on_failure=False)
+    expected = normalize_instagram_username(expected_username)
+    actual = normalize_instagram_username(validation.get("username"))
+    if expected and actual != expected:
+        raise HelperError(
+            "account_mismatch",
+            f"logged in as @{actual or 'unknown'}, but slot {slot} expects @{expected}",
+        )
+    directory = os.path.dirname(path)
+    os.makedirs(directory, exist_ok=True)
+    tmp = path + ".tmp." + str(os.getpid()) + "." + str(int(time.time() * 1000))
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(cookie)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    if old_account_id:
+        clear_cookie_cooldown(old_account_id)
+        clear_account_quarantine(old_account_id)
+    accounts = discover_cookie_accounts(force=True)
+    updated = find_cookie_account(slot)
+    if updated is not None:
+        clear_cookie_cooldown(updated.account_id)
+        clear_account_quarantine(updated.account_id)
+    clear_auth_cooldown()
+    return {
+        "slot": cookie_account_slot(updated) if updated is not None else slot,
+        "account_id": updated.account_id if updated is not None else "",
+        "file": os.path.basename(path),
+        "validation": validation,
+        "pool": {"total": len(accounts), "available": cookie_pool_health()["available"], "cooling_down": cookie_pool_health()["cooling_down"]},
+    }
 
 
 def find_cookie_account(account_ref):
@@ -204,6 +446,8 @@ def mark_account_failure(account_id, code, post_id=""):
     until = time.time() + max(60, AUTH_COOLDOWN_SECONDS)
     with cookie_pool_lock:
         account_cooldowns[account_id] = until
+    quarantine_account(account_id, code)
+    record_account_failure(account_id, code, f"cooldown opened after {post_id}" if post_id else "cooldown opened", "cooldown")
     log("warn", "cookie account cooldown opened", account_id=account_id, post_id=post_id, error_code=code, cooldown_seconds=max(60, AUTH_COOLDOWN_SECONDS))
 
 
@@ -212,16 +456,19 @@ def choose_cookie_account(post_id=""):
     accounts = discover_cookie_accounts()
     if not accounts:
         raise HelperError("cookie_missing", "no usable Instagram cookie files found")
+    eligible = [account for account in accounts if not account_needs_login(account.account_id)]
+    if not eligible:
+        raise HelperError("cookie_missing", "all Instagram cookie accounts need login recovery")
     now = time.time()
     with cookie_pool_lock:
-        total = len(accounts)
+        total = len(eligible)
         for _ in range(total):
             idx = cookie_cursor % total
             cookie_cursor += 1
-            account = accounts[idx]
+            account = eligible[idx]
             if account_cooldowns.get(account.account_id, 0) <= now:
                 return account
-        soonest = min(account_cooldowns.get(account.account_id, 0) for account in accounts)
+        soonest = min(account_cooldowns.get(account.account_id, 0) for account in eligible)
     remaining = int(max(1, soonest - now))
     raise HelperError("auth_circuit_open", f"all Instagram cookie accounts are cooling down for {remaining}s")
 
@@ -230,12 +477,15 @@ def cookie_pool_health():
     accounts = discover_cookie_accounts()
     healthy = 0
     cooling = 0
+    needs_login = 0
     for account in accounts:
-        if cookie_account_status(account.account_id) > 0:
+        if account_needs_login(account.account_id):
+            needs_login += 1
+        elif cookie_account_status(account.account_id) > 0:
             cooling += 1
         else:
             healthy += 1
-    return {"total": len(accounts), "available": healthy, "cooling_down": cooling}
+    return {"total": len(accounts), "available": healthy, "cooling_down": cooling, "needs_login": needs_login}
 
 
 def classify_instagram_error(status, body, fallback="instagram_error"):
@@ -421,11 +671,18 @@ def auth_negative_key(post_id, account_id=""):
 def cached_auth_payload(post_id, account_id=""):
     negative = cache_get(auth_negative_cache, auth_negative_key(post_id, account_id)) if account_id else None
     if negative:
-        raise HelperError(negative.get("code") or "auth_negative_cached", negative.get("message") or "cached authenticated failure")
+        log("info", "auth oembed failure served from cache", post_id=post_id, error_code=negative.get("code") or "auth_negative_cached")
+        raise HelperError(
+            negative.get("code") or "auth_negative_cached",
+            negative.get("message") or "cached authenticated failure",
+            cached=True,
+        )
     cached = cache_get(auth_success_cache, post_id)
     if cached:
         log("info", "auth oembed served from cache", post_id=post_id)
-        return dict(cached)
+        payload = dict(cached)
+        payload["cache_hit"] = True
+        return payload
     return None
 
 
@@ -473,6 +730,10 @@ def oembed(post_id, forced_account=None, bypass_cache=False):
         cached_auth_payload(post_id, forced_account.account_id)
     account = forced_account or choose_cookie_account(post_id)
     account_id = account.account_id
+    if forced_account is None and not bypass_cache:
+        cached = cached_auth_payload(post_id, account_id)
+        if cached:
+            return cached
     cookie = account.cookie
     post_url = f"https://www.instagram.com/reel/{post_id}/"
     url = "https://www.instagram.com/api/v1/oembed/?url=" + quote(post_url, safe="")
@@ -489,11 +750,13 @@ def oembed(post_id, forced_account=None, bypass_cache=False):
         r = auth_get(url, headers, post_id=post_id, account=account, stream=True)
     except Exception as exc:
         code = classify_exception(exc)
+        record_account_failure(account, code, exc, "oembed")
         cache_negative(post_id, code, exc, account_id)
         raise
     try:
         body = bounded_response_bytes(r)
     except HelperError as exc:
+        record_account_failure(account, exc.code, exc, "oembed")
         cache_negative(post_id, exc.code, exc, account_id)
         raise
     try:
@@ -508,6 +771,7 @@ def oembed(post_id, forced_account=None, bypass_cache=False):
         if code in AUTH_CIRCUIT_CODES:
             mark_account_failure(account.account_id, code, post_id)
         if not FETCH_MEDIA_INFO_FALLBACK:
+            record_account_failure(account, code, f"Instagram oEmbed HTTP {r.status_code}: {message}", "oembed")
             cache_negative(post_id, code, f"Instagram oEmbed HTTP {r.status_code}: {message}", account_id)
             raise HelperError(code, f"Instagram oEmbed HTTP {r.status_code}: {message or r.status_code}", r.status_code)
         log("warn", "auth oembed unavailable; trying media info fallback", post_id=post_id, status=r.status_code, error=message[:120])
@@ -516,14 +780,21 @@ def oembed(post_id, forced_account=None, bypass_cache=False):
             store_auth_payload(post_id, payload)
             return payload
         except HelperError as exc:
+            if exc.code in AUTH_CIRCUIT_CODES:
+                record_account_failure(account, exc.code, exc, "oembed")
+                cache_negative(post_id, exc.code, exc, account_id)
+                raise
             if code == "geoblock_required":
                 error = f"Instagram oEmbed HTTP {r.status_code}: geoblock_required; media info fallback: {exc}"
+                record_account_failure(account, code, error, "oembed")
                 cache_negative(post_id, code, error, account_id)
                 raise HelperError(code, error, r.status_code)
             if exc.code == "private_media":
                 code = classify_instagram_error(r.status_code, body, "auth_forbidden")
+                record_account_failure(account, code, f"Instagram oEmbed HTTP {r.status_code}: {message}", "oembed")
                 cache_negative(post_id, code, f"Instagram oEmbed HTTP {r.status_code}: {message}", account_id)
                 raise HelperError(code, f"Instagram oEmbed HTTP {r.status_code}: {message}", r.status_code)
+            record_account_failure(account, exc.code, exc, "oembed")
             cache_negative(post_id, exc.code, exc, account_id)
             raise
     if not isinstance(data, dict):
@@ -558,8 +829,194 @@ def oembed(post_id, forced_account=None, bypass_cache=False):
         "height": height,
         "media_id": media_id,
     }
+    record_account_success(account, author, "oembed")
     store_auth_payload(post_id, payload)
     return payload
+
+
+def extract_homepage_username(text):
+    if not text:
+        return ""
+    patterns = [
+        r'"username"\s*:\s*"([A-Za-z0-9_.]{1,80})"',
+        r'"viewer"\s*:\s*\{[^{}]{0,2000}"username"\s*:\s*"([A-Za-z0-9_.]{1,80})"',
+        r'"viewer_username"\s*:\s*"([A-Za-z0-9_.]{1,80})"',
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def extract_cookie_value(cookie, name):
+    prefix = str(name or "") + "="
+    for part in str(cookie or "").split(";"):
+        part = part.strip()
+        if part.startswith(prefix):
+            return part[len(prefix):].strip()
+    return ""
+
+
+def extract_username_from_json(value, depth=0):
+    if depth > 8:
+        return ""
+    if isinstance(value, dict):
+        for key in ("username", "viewer_username"):
+            candidate = str(value.get(key) or "").strip().lstrip("@")
+            if re.match(r"^[A-Za-z0-9_.]{1,80}$", candidate):
+                return candidate
+        for key in ("user", "viewer", "current_user", "data", "config", "props", "graphql"):
+            if key in value:
+                candidate = extract_username_from_json(value.get(key), depth + 1)
+                if candidate:
+                    return candidate
+        for child in value.values():
+            candidate = extract_username_from_json(child, depth + 1)
+            if candidate:
+                return candidate
+    elif isinstance(value, list):
+        for child in value[:50]:
+            candidate = extract_username_from_json(child, depth + 1)
+            if candidate:
+                return candidate
+    return ""
+
+
+def fetch_current_username(account):
+    """Best-effort username lookup for the manual admin cookie test only."""
+    csrf = extract_cookie_value(account.cookie, "csrftoken")
+    headers = {
+        "accept": "application/json,text/plain,*/*",
+        "accept-language": "ru,en-US;q=0.9,en;q=0.8,uk;q=0.7",
+        "cookie": account.cookie,
+        "referer": "https://www.instagram.com/",
+        "x-ig-app-id": "936619743392459",
+        "x-requested-with": "XMLHttpRequest",
+    }
+    if csrf:
+        headers["x-csrftoken"] = csrf
+    urls = (
+        "https://www.instagram.com/api/v1/accounts/current_user/?edit=true",
+        "https://www.instagram.com/api/v1/web/data/shared_data/",
+        "https://www.instagram.com/api/v1/web/accounts/web_change_profile_picture/",
+    )
+    for url in urls:
+        r = None
+        try:
+            r = requests.get(url, headers=headers, impersonate=IMPERSONATE, timeout=min(TIMEOUT, 10), allow_redirects=False, stream=True)
+            if r.status_code in REDIRECT_STATUSES:
+                log("info", "current username lookup redirected", slot=cookie_account_slot(account), code=classify_redirect_location(r.headers.get("location", "")))
+                continue
+            body = bounded_response_bytes(r, 256 * 1024)
+            r = None
+            if r is not None:
+                with contextlib.suppress(Exception):
+                    r.close()
+            if not body:
+                continue
+            try:
+                payload = json.loads(body.decode("utf-8", "ignore"))
+            except Exception:
+                continue
+            username = extract_username_from_json(payload)
+            if username:
+                return username
+        except Exception as exc:
+            log("info", "current username lookup failed", slot=cookie_account_slot(account), error=str(exc)[:160])
+        finally:
+            if r is not None:
+                with contextlib.suppress(Exception):
+                    r.close()
+    return ""
+
+
+def test_cookie_homepage(account_ref):
+    account = find_cookie_account(account_ref)
+    if account is None:
+        raise HelperError("account_not_found", "cookie account not found")
+    return test_cookie_account(account)
+
+
+def test_cookie_account(account, quarantine_on_failure=True):
+    url = "https://www.instagram.com/"
+    headers = {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "ru,en-US;q=0.9,en;q=0.8,uk;q=0.7",
+        "cookie": account.cookie,
+        "referer": "https://www.instagram.com/",
+    }
+    require_auth_available("homepage_test")
+    if not allow_auth_request():
+        raise HelperError("auth_rate_limited", "authenticated request rate limited", 429)
+    body = b""
+    r = None
+    try:
+        r = requests.get(url, headers=headers, impersonate=IMPERSONATE, timeout=min(TIMEOUT, 10), allow_redirects=True, stream=True)
+        body = bounded_stream_prefix(r, 128 * 1024)
+        status = r.status_code
+    except Exception as exc:
+        code = classify_exception(exc)
+        record_account_test(account, code, message=str(exc))
+        if quarantine_on_failure:
+            quarantine_account(account.account_id, code)
+        raise
+    finally:
+        if r is not None:
+            with contextlib.suppress(Exception):
+                r.close()
+    code = classify_instagram_error(status, body, "homepage_unavailable") if status != 200 else "ok"
+    text = body.decode("utf-8", "ignore")
+    username = extract_homepage_username(text)
+    final_url = str(getattr(r, "url", "") or "").lower()
+    if status != 200:
+        record_account_test(account, code, username=username, message=f"homepage HTTP {status}")
+        if quarantine_on_failure:
+            quarantine_account(account.account_id, code)
+        raise HelperError(code, f"homepage HTTP {status}", status)
+    lower = text.lower()
+    if "/accounts/login" in final_url or "/accounts/login" in lower or "login_required" in lower or "checkpoint_required" in lower or "/challenge" in final_url or "challenge_required" in lower:
+        code = "login_required" if "/accounts/login" in final_url or "/accounts/login" in lower or "login_required" in lower else classify_instagram_error(status, body, "homepage_login_wall")
+        record_account_test(account, code, username=username, message="homepage returned login/checkpoint wall")
+        if quarantine_on_failure:
+            quarantine_account(account.account_id, code)
+        raise HelperError(code, "homepage returned login/checkpoint wall", status)
+    if not username:
+        username = fetch_current_username(account)
+    if not username:
+        code = "session_invalid"
+        record_account_test(account, code, message="authenticated identity could not be confirmed")
+        if quarantine_on_failure:
+            quarantine_account(account.account_id, code)
+        raise HelperError(code, "authenticated identity could not be confirmed", status)
+
+    # A logged-in homepage is not enough. Instagram can accept the browser
+    # session shell while rejecting the media-info endpoint used by the real
+    # authenticated fallback. Probe that production path before declaring a
+    # recovered cookie healthy, otherwise the recovery UI produces a false
+    # success and the first real request immediately quarantines the account.
+    if not POST_ID_RE.match(COOKIE_VALIDATION_POST_ID):
+        raise HelperError("invalid_config", "cookie validation post ID is invalid")
+    try:
+        probe_media_id = str(shortcode_to_media_id(COOKIE_VALIDATION_POST_ID))
+        probe_referer = f"https://www.instagram.com/p/{COOKIE_VALIDATION_POST_ID}/"
+        fetch_media_info(probe_media_id, account, probe_referer, cooldown_on_auth_failure=False)
+    except Exception as exc:
+        code = classify_exception(exc)
+        if code in COOKIE_MEDIA_PROBE_ACCEPTED_RESTRICTIONS:
+            # The media endpoint recognized the request but the fixed probe
+            # publication itself is restricted. This still proves that the
+            # session reached the production API without a login challenge.
+            log("info", "cookie media API probe accepted content restriction", error_code=code)
+        else:
+            record_account_test(account, code, username=username, message="authenticated media API probe failed")
+            if quarantine_on_failure:
+                quarantine_account(account.account_id, code)
+            raise HelperError(code, "authenticated media API probe failed") from exc
+    if quarantine_on_failure:
+        clear_account_quarantine(account.account_id)
+    record_account_test(account, "ok", username=username)
+    return {"slot": cookie_account_slot(account), "account_id": account.account_id, "username": username, "status": status, "code": "ok"}
 
 
 def shortcode_to_media_id(shortcode):
@@ -1111,6 +1568,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def read_json(self, limit=65536):
+        length = int(self.headers.get("Content-Length") or "0")
+        if length <= 0 or length > limit:
+            raise HelperError("invalid_request", "invalid request body size")
+        raw = self.rfile.read(length)
+        return json.loads(raw.decode("utf-8"))
+
+    def admin_authorized(self):
+        if not COOKIE_ADMIN_TOKEN:
+            return False
+        return hmac.compare_digest(self.headers.get("X-Admin-Token", ""), COOKIE_ADMIN_TOKEN)
+
     def do_GET(self):
         try:
             if self.path == "/healthz":
@@ -1158,11 +1627,49 @@ class Handler(BaseHTTPRequestHandler):
             log("info", "auth oembed succeeded", post_id=post_id, duration_ms=int((time.time() - start) * 1000))
         except Exception as exc:
             code = classify_exception(exc)
-            self.write_json(502, {"ok": False, "error": str(exc)[:300], "error_code": code})
+            self.write_json(502, {
+                "ok": False,
+                "error": str(exc)[:300],
+                "error_code": code,
+                "cache_hit": bool(getattr(exc, "cached", False)),
+            })
             post_id = ""
             if self.path.startswith("/oembed/"):
                 post_id = self.path[len("/oembed/"):].split("?", 1)[0].strip()
             log("warn", "auth oembed failed", post_id=post_id, error=str(exc)[:300], error_code=code)
+
+    def do_POST(self):
+        try:
+            if self.path == "/admin/cookies/test":
+                if not self.admin_authorized():
+                    self.write_json(403, {"ok": False, "error": "forbidden"})
+                    return
+                payload = self.read_json(8192)
+                slot = str(payload.get("slot") or "").strip()
+                result = test_cookie_homepage(slot)
+                self.write_json(200, {"ok": True, "result": result, "accounts": cookie_accounts_status()})
+                log("info", "cookie recovery test succeeded", slot=result.get("slot", slot), account_id=result.get("account_id", ""), username=result.get("username", ""))
+                return
+            if self.path != "/admin/cookies/update":
+                self.write_json(404, {"ok": False, "error": "not found"})
+                return
+            if not self.admin_authorized():
+                self.write_json(403, {"ok": False, "error": "forbidden"})
+                return
+            payload = self.read_json(min(COOKIE_ADMIN_MAX_BYTES + 4096, 131072))
+            slot = str(payload.get("slot") or "").strip()
+            cookie = str(payload.get("cookie") or "")
+            expected_username = str(payload.get("expected_username") or "").strip()
+            result = update_cookie_slot(slot, cookie, expected_username)
+            self.write_json(200, {"ok": True, "result": result, "accounts": cookie_accounts_status()})
+            log("info", "cookie slot updated", slot=result.get("slot", slot), account_id=result.get("account_id", ""), file=result.get("file", ""), has_sessionid=True)
+        except Exception as exc:
+            code = classify_exception(exc)
+            self.write_json(400 if code in ("invalid_slot", "cookie_missing", "cookie_too_large", "invalid_request", "account_mismatch") else 502, {"ok": False, "error": str(exc)[:300], "error_code": code})
+            if self.path == "/admin/cookies/test":
+                log("warn", "cookie recovery test failed", error=str(exc)[:160], error_code=code)
+            else:
+                log("warn", "cookie slot update failed", error=str(exc)[:160], error_code=code)
 
     def do_HEAD(self):
         if self.path.startswith("/video/"):
@@ -1196,7 +1703,7 @@ def main():
         log("error", "auth helper cookie unavailable", error=str(exc))
         sys.exit(1)
     server = ThreadingHTTPServer((host, int(port_text)), Handler)
-    log("info", "auth helper listening", listen=LISTEN, impersonate=IMPERSONATE, cookie_file=bool(COOKIE_FILE), cookie_dir=bool(COOKIE_DIR), cookie_pool=pool, max_per_minute=MAX_PER_MINUTE, auth_max_per_minute=AUTH_MAX_PER_MINUTE, auth_cooldown_seconds=AUTH_COOLDOWN_SECONDS, auth_cache_ttl_seconds=AUTH_CACHE_TTL_SECONDS, auth_negative_cache_ttl_seconds=AUTH_NEGATIVE_CACHE_TTL_SECONDS, fetch_video_info=FETCH_VIDEO_INFO, fetch_media_info_fallback=FETCH_MEDIA_INFO_FALLBACK, video_proxy=ENABLE_VIDEO_PROXY, video_proxy_send_cookie=VIDEO_PROXY_SEND_COOKIE, video_proxy_refresh_mode=VIDEO_PROXY_REFRESH_MODE, video_proxy_max_concurrent=VIDEO_PROXY_MAX_CONCURRENT, video_proxy_max_bytes=VIDEO_PROXY_MAX_BYTES, video_proxy_timeout=VIDEO_PROXY_TIMEOUT, video_proxy_max_resume_attempts=VIDEO_PROXY_MAX_RESUME_ATTEMPTS, video_proxy_upstream_chunk_bytes=VIDEO_PROXY_UPSTREAM_CHUNK_BYTES, video_proxy_upstream_chunk_timeout=VIDEO_PROXY_UPSTREAM_CHUNK_TIMEOUT)
+    log("info", "auth helper listening", listen=LISTEN, impersonate=IMPERSONATE, cookie_file=bool(COOKIE_FILE), cookie_dir=bool(COOKIE_DIR), cookie_pool=pool, cookie_admin=bool(COOKIE_ADMIN_TOKEN), cookie_validation_post=bool(COOKIE_VALIDATION_POST_ID), max_per_minute=MAX_PER_MINUTE, auth_max_per_minute=AUTH_MAX_PER_MINUTE, auth_cooldown_seconds=AUTH_COOLDOWN_SECONDS, auth_cache_ttl_seconds=AUTH_CACHE_TTL_SECONDS, auth_negative_cache_ttl_seconds=AUTH_NEGATIVE_CACHE_TTL_SECONDS, fetch_video_info=FETCH_VIDEO_INFO, fetch_media_info_fallback=FETCH_MEDIA_INFO_FALLBACK, video_proxy=ENABLE_VIDEO_PROXY, video_proxy_send_cookie=VIDEO_PROXY_SEND_COOKIE, video_proxy_refresh_mode=VIDEO_PROXY_REFRESH_MODE, video_proxy_max_concurrent=VIDEO_PROXY_MAX_CONCURRENT, video_proxy_max_bytes=VIDEO_PROXY_MAX_BYTES, video_proxy_timeout=VIDEO_PROXY_TIMEOUT, video_proxy_max_resume_attempts=VIDEO_PROXY_MAX_RESUME_ATTEMPTS, video_proxy_upstream_chunk_bytes=VIDEO_PROXY_UPSTREAM_CHUNK_BYTES, video_proxy_upstream_chunk_timeout=VIDEO_PROXY_UPSTREAM_CHUNK_TIMEOUT)
     server.serve_forever()
 
 

@@ -11,90 +11,2079 @@ const homeHTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#fbf9f6">
-  <meta name="description" content="InstaFix Revived is a lightweight, maintained continuation of InstaFix for cleaner Instagram link previews and playable media embeds when available.">
-  <title>InstaFix Revived</title>
+  <meta name="color-scheme" content="light">
+  <meta name="application-name" content="InstaFix Revived">
+  <meta name="apple-mobile-web-app-title" content="Instagram7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no, email=no, address=no">
+  <meta name="description" content="Paste a public Instagram post, Reel, or shortcode to generate a cleaner share link for Discord, Telegram, and other chat apps.">
+  <meta name="author" content="Bl0ck154">
+  <meta name="publisher" content="Bl0ck154">
+  <meta name="creator" content="Bl0ck154">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="bingbot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="rating" content="general">
+  <meta name="distribution" content="global">
+  <meta name="language" content="English">
+  <link rel="canonical" href="https://www.instagram7.com/">
+  <link rel="home" href="https://www.instagram7.com/">
+  <link rel="me" href="https://github.com/Bl0ck154">
+  <link rel="author" href="https://github.com/Bl0ck154">
+  <link rel="publisher" href="https://github.com/Bl0ck154">
+  <link rel="sitemap" type="application/xml" href="https://www.instagram7.com/sitemap.xml">
+  <meta property="og:title" content="Instagram Link Fixer for Discord &amp; Telegram | Instagram7">
+  <meta property="og:site_name" content="Instagram7">
+  <meta property="og:description" content="Paste a public Instagram post, Reel, or shortcode to generate a cleaner share link for Discord, Telegram, and other chat apps.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.instagram7.com/">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image" content="https://www.instagram7.com/site-preview.svg">
+  <meta property="og:image:secure_url" content="https://www.instagram7.com/site-preview.svg">
+  <meta property="og:image:type" content="image/svg+xml">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Instagram7.com — cleaner Instagram previews for chat apps">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Instagram Link Fixer for Discord &amp; Telegram | Instagram7">
+  <meta name="twitter:description" content="Paste a public Instagram post, Reel, or shortcode to generate a cleaner share link for Discord, Telegram, and other chat apps.">
+  <meta name="twitter:image" content="https://www.instagram7.com/site-preview.svg">
+  <meta name="twitter:image:alt" content="Instagram7.com — cleaner Instagram previews for chat apps">
+  <title>Instagram Link Fixer for Discord &amp; Telegram | Instagram7</title>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://www.instagram7.com/#website",
+        "url": "https://www.instagram7.com/",
+        "name": "Instagram7.com",
+        "alternateName": ["InstaFix Revived", "Instagram7"],
+        "description": "A public Instagram link fixer that generates cleaner share links for Discord, Telegram, and other chat apps.",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "creator": {"@id": "https://www.instagram7.com/#creator"},
+        "publisher": {"@id": "https://www.instagram7.com/#creator"}
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://www.instagram7.com/#app",
+        "name": "InstaFix Revived",
+        "url": "https://www.instagram7.com/",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires a modern web browser",
+        "isAccessibleForFree": true,
+        "description": "Convert Instagram post and Reel links to instagram7.com links for cleaner previews in Telegram, Discord, and other chat apps.",
+        "featureList": [
+          "Instagram link conversion",
+          "Instagram Reel preview support",
+          "OpenGraph and Twitter card metadata",
+          "Playable video previews when available",
+          "No third-party analytics on the homepage"
+        ],
+        "author": {"@id": "https://www.instagram7.com/#creator"},
+        "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+      },
+      {
+        "@type": "Person",
+        "@id": "https://www.instagram7.com/#creator",
+        "name": "Bl0ck154",
+        "url": "https://github.com/Bl0ck154",
+        "sameAs": [
+          "https://github.com/Bl0ck154",
+          "https://github.com/Bl0ck154/InstaFix-Revived",
+          "https://github.com/sponsors/Bl0ck154",
+          "https://buymeacoffee.com/bl0ck"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://www.instagram7.com/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How do I fix an Instagram preview link?",
+            "acceptedAnswer": {"@type": "Answer", "text": "Add the number 7 after instagram in a public post or Reel URL, or paste the original link into the converter on Instagram7.com, then send the converted link in your messenger."}
+          },
+          {
+            "@type": "Question",
+            "name": "Does Instagram7.com support Reels?",
+            "acceptedAnswer": {"@type": "Answer", "text": "Yes. Public Instagram Reels can generate cleaner preview metadata and playable video previews when the media is available."}
+          },
+          {
+            "@type": "Question",
+            "name": "Is Instagram7.com affiliated with Instagram?",
+            "acceptedAnswer": {"@type": "Answer", "text": "No. Instagram7.com and InstaFix Revived are independent projects and are not affiliated with Instagram, Meta, or Instagram, Inc."}
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <style>
-    :root { color-scheme: light; --bg:#fbf9f6; --card:#ffffffd9; --text:#2c241e; --muted:#6e645a; --line:#eadfd4; --accent:#6366f1; --accent2:#ec4899; }
-    * { box-sizing: border-box; }
-    body { margin:0; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.6; color:var(--text); background:radial-gradient(circle at 10% 15%,#fed7aa66,transparent 32%),radial-gradient(circle at 90% 80%,#ddd6fe88,transparent 34%),var(--bg); }
-    a { color:inherit; }
-    .wrap { max-width:960px; margin:0 auto; padding:42px 22px 64px; }
-    header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-bottom:24px; border-bottom:1px solid var(--line); }
-    .brand { font-size:1.2rem; font-weight:800; letter-spacing:-.03em; background:linear-gradient(135deg,var(--accent2),#f97316); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    nav { display:flex; gap:18px; color:var(--muted); font-size:.95rem; }
-    .hero { text-align:center; padding:58px 0 28px; }
-    h1 { margin:0 0 14px; font-size:clamp(2.3rem,6vw,4.2rem); line-height:1.05; letter-spacing:-.06em; }
-    .hero p { max-width:720px; margin:0 auto; color:var(--muted); font-size:1.12rem; }
-    .card { margin:28px 0; padding:24px; border:1px solid var(--line); border-radius:26px; background:var(--card); box-shadow:0 18px 60px #7c2d1212; }
-    label { display:block; margin-bottom:10px; font-weight:700; }
-    .row { display:flex; gap:10px; }
-    input { flex:1; min-width:0; border:1px solid var(--line); border-radius:14px; padding:14px 15px; font-size:1rem; background:white; color:var(--text); }
-    button { border:0; border-radius:14px; padding:14px 18px; font-weight:800; color:white; background:linear-gradient(135deg,var(--accent),var(--accent2)); cursor:pointer; }
-    .output { margin-top:16px; padding:14px 15px; border-radius:14px; background:#f8fafc; color:var(--muted); word-break:break-all; }
-    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:18px; }
-    .mini { padding:18px; border:1px solid var(--line); border-radius:20px; background:#fffaf6cc; }
-    .mini strong { display:block; margin-bottom:6px; }
-    footer { margin-top:42px; color:var(--muted); font-size:.95rem; text-align:center; }
-    @media (max-width:760px) { header,.row { flex-direction:column; align-items:stretch; } nav { justify-content:center; flex-wrap:wrap; } .grid { grid-template-columns:1fr; } }
+    :root {
+      --bg-main: #fbf9f6;
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --border-card: rgba(139, 92, 26, 0.12);
+      --border-card-hover: rgba(139, 92, 26, 0.22);
+      --text-primary: #2c241e;
+      --text-secondary: #6e645a;
+      --text-muted: #9c8e80;
+      --color-accent: #6366f1;
+      --color-accent-hover: #4f46e5;
+      --color-success: #10b981;
+      --font-primary: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(249, 115, 22, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.04) 0%, transparent 40%);
+      color: var(--text-primary);
+      font-family: var(--font-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--color-accent-hover);
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(139, 92, 26, 0.1);
+      margin-bottom: 50px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #d946ef, #ec4899, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+
+    nav {
+      display: flex;
+      gap: 20px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    nav a {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: var(--text-primary);
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.04em;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #d946ef, #ec4899, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.15rem);
+      color: var(--text-secondary);
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    /* Converter + Live Preview */
+    .converter-showcase {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 430px);
+      gap: 28px;
+      align-items: center;
+      margin-bottom: 42px;
+      padding: 24px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 247, 237, 0.58)),
+        radial-gradient(circle at 15% 20%, rgba(236, 72, 153, 0.08), transparent 36%),
+        radial-gradient(circle at 86% 78%, rgba(99, 102, 241, 0.08), transparent 34%);
+      border: 1px solid rgba(139, 92, 26, 0.12);
+      border-radius: 30px;
+      box-shadow: 0 24px 70px rgba(139, 92, 26, 0.08);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .unified-card {
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid rgba(139, 92, 26, 0.1);
+      border-radius: 24px;
+      padding: 26px;
+      box-shadow: 0 16px 36px rgba(139, 92, 26, 0.06);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .unified-card:focus-within {
+      border-color: var(--color-accent);
+      box-shadow: 0 20px 40px rgba(99, 102, 241, 0.08);
+    }
+
+    @media (max-width: 900px) {
+      .converter-showcase {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 20px;
+      }
+      .unified-card {
+        padding: 22px;
+      }
+      .preview-panel {
+        justify-content: center;
+      }
+    }
+
+    .converter-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .converter-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      gap: 8px;
+      border: 1px solid rgba(99, 102, 241, 0.14);
+      background: rgba(99, 102, 241, 0.07);
+      color: #4f46e5;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .converter-title {
+      font-size: clamp(1.55rem, 3vw, 2.15rem);
+      line-height: 1.12;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .converter-copy {
+      color: var(--text-secondary);
+      font-size: 0.94rem;
+      line-height: 1.55;
+      max-width: 560px;
+    }
+
+    .preview-panel {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .input-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-wrapper input {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid rgba(139, 92, 26, 0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-family: var(--font-primary);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-wrapper input:focus {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    }
+
+    .input-wrapper input.invalid {
+      border-color: rgba(220, 38, 38, 0.48);
+      box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.08);
+    }
+
+    .btn-convert {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #ffffff;
+      border: none;
+      font-weight: 600;
+      padding: 0 22px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: var(--font-primary);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-convert:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-convert:active {
+      transform: translateY(1px);
+    }
+
+    .result-wrapper {
+      background: linear-gradient(135deg, rgba(238, 242, 255, 0.88), rgba(253, 242, 248, 0.74));
+      border: 1px solid rgba(99, 102, 241, 0.16);
+      border-radius: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      max-height: 0;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(79, 70, 229, 0.06);
+      transition: opacity 0.2s ease, max-height 0.25s ease, padding 0.25s ease, margin 0.25s ease;
+    }
+
+    .result-wrapper.active {
+      opacity: 1;
+      max-height: 72px;
+      padding: 10px 11px 10px 13px;
+      margin-top: 12px;
+    }
+
+    .result-content {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .result-label {
+      display: block;
+      margin-bottom: 2px;
+      color: #7c6f9d;
+      font-size: 0.63rem;
+      font-weight: 700;
+      letter-spacing: 0.075em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .result-text {
+      font-family: var(--font-mono);
+      font-size: clamp(0.68rem, 1.5vw, 0.76rem);
+      font-weight: 600;
+      letter-spacing: -0.045em;
+      line-height: 1.25;
+      color: #4f46e5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: all;
+    }
+
+    .btn-copy {
+      background: rgba(79, 70, 229, 0.09);
+      border: 1px solid rgba(79, 70, 229, 0.13);
+      color: #4338ca;
+      padding: 8px 11px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-copy:hover {
+      background: rgba(79, 70, 229, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .btn-copy.copied {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.2);
+      color: #059669;
+    }
+
+    .converter-hint {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      min-height: 1.4em;
+      padding-top: 6px;
+      transition: color 0.2s ease;
+    }
+
+    .converter-hint.error {
+      color: #b91c1c;
+    }
+
+    .converter-hint.success {
+      color: #047857;
+    }
+
+    .converter-hint:empty {
+      display: none;
+    }
+
+    .demo-caption {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      line-height: 1.4;
+    }
+
+    .demo-caption::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    }
+
+    .demo-status {
+      color: #4f46e5;
+      font-weight: 650;
+    }
+
+    .input-wrapper input.demo-seven-added {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 8px 20px rgba(79, 70, 229, 0.08);
+      background: linear-gradient(90deg, #ffffff, #eef2ff, #ffffff);
+      background-size: 220% 100%;
+      animation: demo-seven-pulse 0.75s ease both;
+    }
+
+    @keyframes demo-seven-pulse {
+      0% { background-position: 100% 0; transform: scale(1); }
+      45% { transform: scale(1.008); }
+      100% { background-position: 0 0; transform: scale(1); }
+    }
+
+    /* Chat Mockup */
+    .phone-frame {
+      width: min(100%, 400px);
+      aspect-ratio: 9 / 19;
+      background: linear-gradient(145deg, #1f2937, #020617);
+      border: 1px solid rgba(15, 23, 42, 0.18);
+      border-radius: 36px;
+      padding: 12px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18), 0 8px 18px rgba(139, 92, 26, 0.08);
+      position: relative;
+    }
+
+    .phone-frame::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 58px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(226, 232, 240, 0.38);
+      z-index: 2;
+    }
+
+    .chat-mockup-wrapper {
+      background: #f2ebd9;
+      background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 0);
+      background-size: 20px 20px;
+      border-radius: 28px;
+      padding: 14px 12px 14px;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .mockup-header {
+      display: grid;
+      grid-template-columns: 24px 38px minmax(0, 1fr) 24px;
+      align-items: center;
+      gap: 8px;
+      min-height: 54px;
+      margin: -14px -12px 0;
+      padding: 10px 12px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #4f46e5, #6366f1 56%, #7c3aed);
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 8px 22px rgba(79, 70, 229, 0.2);
+      flex-shrink: 0;
+    }
+
+    .chat-header-icon {
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .chat-avatar {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      border-radius: 50%;
+      background: linear-gradient(135deg, #d946ef, #ec4899, #f97316);
+      color: #ffffff;
+      font-size: 0.9rem;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(49, 46, 129, 0.25);
+    }
+
+    .chat-header-copy {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.15;
+    }
+
+    .chat-header-copy strong {
+      font-size: 0.88rem;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+    }
+
+    .chat-presence-indicator {
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #86efac;
+      box-shadow: 0 0 0 3px rgba(134, 239, 172, 0.18);
+    }
+
+    .chat-bubble {
+      background: #ffffff;
+      border-radius: 12px 12px 12px 3px;
+      padding: 12px 14px 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      align-self: flex-start;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .chat-link {
+      color: #1d77b8;
+      font-size: 0.88rem;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      display: block;
+      margin-bottom: 8px;
+      line-height: 1.35;
+      cursor: text;
+    }
+
+    .chat-link-placeholder {
+      color: #1d77b8;
+      opacity: 0.72;
+    }
+
+    .chat-link:hover,
+    .chat-link:focus {
+      text-decoration: underline;
+    }
+
+    .chat-link:focus {
+      outline: none;
+      text-decoration-style: dotted;
+      text-underline-offset: 3px;
+    }
+
+    .embed-preview {
+      border-left: 2px solid #2481cc;
+      padding-left: 10px;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .embed-site {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #2481cc;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .embed-site-icon {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: linear-gradient(135deg, #f50057, #ff9100);
+    }
+
+    .embed-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .embed-description {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      max-height: 84px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    .embed-media-container {
+      position: relative;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 6px;
+      background: #111827;
+    }
+
+    .embed-media-mockup {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #ffedd5, #fee2e2);
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .play-btn-mockup {
+      width: 46px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #2481cc;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .play-btn-mockup:hover {
+      transform: scale(1.08);
+      background: #ffffff;
+    }
+
+    .play-btn-mockup svg {
+      margin-left: 2px;
+      fill: currentColor;
+    }
+
+    .media-fallback {
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-align: center;
+      padding: 18px;
+      background-image: linear-gradient(135deg, rgba(30, 58, 138, 0.9), rgba(88, 28, 135, 0.9));
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-element {
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      display: block;
+      object-fit: cover;
+    }
+
+    .message-meta {
+      position: static;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      margin-top: 7px;
+      color: #8b827a;
+      font-size: 0.57rem;
+      line-height: 1;
+    }
+
+    .message-checks {
+      color: #2481cc;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: -0.13em;
+    }
+
+    /* Skeleton Loading State */
+    .skeleton {
+      background: linear-gradient(90deg, #eae3d2 25%, #f4ebd7 50%, #eae3d2 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 4px;
+    }
+
+    .skeleton-text {
+      height: 12px;
+      margin-bottom: 6px;
+    }
+
+    .skeleton-text.short {
+      width: 50%;
+    }
+
+    .skeleton-text.title {
+      height: 14px;
+      width: 80%;
+      margin-bottom: 8px;
+    }
+
+    .skeleton-media {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      border-radius: 8px;
+      margin-top: 6px;
+    }
+
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Donations */
+    .donations-section {
+      background: radial-gradient(circle at top, rgba(249, 115, 22, 0.05) 0%, transparent 60%);
+      border: 1px solid rgba(249, 115, 22, 0.12);
+      border-radius: 24px;
+      padding: 40px 30px;
+      text-align: center;
+      margin-bottom: 50px;
+      box-shadow: 0 10px 30px rgba(139, 92, 26, 0.04);
+    }
+
+    .donations-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .donations-desc {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      max-width: 600px;
+      margin: 0 auto 26px auto;
+      line-height: 1.6;
+    }
+
+    .donations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .donate-card {
+      background: #ffffff;
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(139, 92, 26, 0.02);
+    }
+
+    .donate-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: transparent;
+      transition: all 0.3s ease;
+    }
+
+    .donate-card.paypal::before {
+      background: linear-gradient(to right, #0079c1, #00457c);
+    }
+
+    .donate-card.github::before {
+      background: linear-gradient(to right, #2ea44f, #30363d);
+    }
+
+    .donate-card.coffee::before {
+      background: linear-gradient(to right, #ffdd00, #ff9d00);
+    }
+
+    .donate-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-card-hover);
+      box-shadow: 0 10px 25px rgba(139, 92, 26, 0.08);
+    }
+
+    .donate-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      color: #ffffff;
+    }
+
+    .donate-card.paypal .donate-logo {
+      background: rgba(0, 121, 193, 0.06);
+      border: 1px solid rgba(0, 121, 193, 0.1);
+      color: #0079c1;
+    }
+
+    .donate-card.github .donate-logo {
+      background: rgba(46, 164, 79, 0.06);
+      border: 1px solid rgba(46, 164, 79, 0.1);
+      color: #2ea44f;
+    }
+
+    .donate-card.coffee .donate-logo {
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px solid rgba(255, 157, 0, 0.18);
+      color: #b86b00;
+    }
+
+    .donate-logo svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .donate-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .donate-info {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-bottom: 18px;
+      flex-grow: 1;
+    }
+
+    .donate-action {
+      width: 100%;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .donate-card.paypal .donate-action {
+      background: #0079c1;
+      color: #ffffff;
+    }
+
+    .donate-card.paypal:hover .donate-action {
+      background: #008be2;
+    }
+
+    .donate-card.github .donate-action {
+      background: #2ea44f;
+      color: #ffffff;
+    }
+
+    .donate-card.github:hover .donate-action {
+      background: #34bc5a;
+    }
+
+    .donate-card.coffee .donate-action {
+      background: #ffdd00;
+      color: #352700;
+    }
+
+    .donate-card.coffee:hover .donate-action {
+      background: #ffe436;
+    }
+
+    /* How to use */
+    .use-section {
+      margin-bottom: 50px;
+    }
+
+    .use-section .section-title {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .grid-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-steps {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 24px;
+      position: relative;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .step-card:hover {
+      border-color: var(--border-card-hover);
+      transform: translateY(-2px);
+    }
+
+    .step-num {
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, #f97316, #db2777);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+      opacity: 0.85;
+    }
+
+    .step-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .step-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Alternative modes */
+    .modes-section {
+      margin-bottom: 50px;
+    }
+
+    .modes-section .section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .modes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .mode-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 24px;
+      transition: border-color 0.3s;
+    }
+
+    .mode-card:hover {
+      border-color: var(--border-card-hover);
+    }
+
+    .mode-badge {
+      display: inline-block;
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      color: #4f46e5;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      margin-bottom: 12px;
+    }
+
+    .mode-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .mode-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .mode-syntax {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      background: #faf8f5;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(139, 92, 26, 0.15);
+      word-break: break-all;
+    }
+
+    /* Feature List */
+    .features-section {
+      margin-bottom: 50px;
+    }
+
+    .features-section .section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .features-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .features-list {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 550px) {
+      .features-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 16px;
+      transition: border-color 0.3s;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-card-hover);
+    }
+
+    .feature-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      line-height: 1.3;
+    }
+
+    .feature-title svg {
+      color: var(--color-accent);
+      flex-shrink: 0;
+      margin: 0;
+      width: 18px;
+      height: 18px;
+    }
+
+    .feature-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .seo-section {
+      margin-bottom: 50px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid var(--border-card);
+      border-radius: 22px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(139, 92, 26, 0.04);
+    }
+
+    .seo-section .section-title {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .seo-intro {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      max-width: 760px;
+      margin-bottom: 22px;
+    }
+
+    .faq-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .faq-item {
+      padding: 16px;
+      border-radius: 14px;
+      background: #ffffff;
+      border: 1px solid rgba(139, 92, 26, 0.1);
+    }
+
+    .faq-item h3 {
+      font-size: 0.96rem;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .faq-item p {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid rgba(139, 92, 26, 0.1);
+      padding-top: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    footer p a {
+      color: var(--text-secondary);
+      text-decoration: underline;
+    }
+
+    footer p a:hover {
+      color: var(--color-accent);
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 24px 16px;
+      }
+      header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+      }
+      nav {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .hero {
+        margin-bottom: 30px;
+      }
+      .input-wrapper {
+        flex-direction: column;
+      }
+      .btn-convert {
+        padding: 12px;
+      }
+      .phone-frame {
+        aspect-ratio: 9 / 19;
+      }
+      .result-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .result-wrapper.active {
+        max-height: 118px;
+      }
+      .btn-copy {
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .input-wrapper input.demo-seven-added {
+        animation: none;
+      }
+    }
   </style>
 </head>
 <body>
-  <main class="wrap">
+  <div class="container">
     <header>
-      <div class="brand">InstaFix Revived</div>
-      <nav>
-        <a href="https://github.com/Bl0ck154/InstaFix-Revived">GitHub</a>
-        <a href="https://github.com/Wikidepia/InstaFix">Original project</a>
+      <div class="brand-group">
+        <a class="brand" href="/">Instagram7.com</a>
+      </div>
+      <nav aria-label="Primary navigation">
+        <a href="#how-to-use">How to Use</a>
+        <a href="/guides">Guides</a>
+        <a href="https://github.com/Bl0ck154/InstaFix-Revived" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
+          </svg>
+          GitHub
+        </a>
+        <a href="#donate">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+          Donate
+        </a>
       </nav>
     </header>
 
-    <section class="hero">
-      <h1>Cleaner Instagram previews.</h1>
-      <p>A maintained, lightweight continuation of InstaFix for public Instagram posts and Reels. Replace the host of an Instagram URL with your deployed domain to generate richer OpenGraph/Twitter card previews and playable media embeds when available.</p>
-    </section>
+    <main>
+      <section class="hero" aria-labelledby="headline">
+        <h1 id="headline">
+          Fix Instagram links for <span>better previews.</span>
+        </h1>
+        <p>A fast public service powered by <a href="https://github.com/Bl0ck154/InstaFix-Revived" target="_blank" rel="noopener noreferrer"><strong>InstaFix Revived</strong></a>, a maintained open-source continuation for cleaner Instagram embeds and playable video previews in chat apps.</p>
+      </section>
 
-    <section class="card" aria-labelledby="converter-title">
-      <h2 id="converter-title">Link converter</h2>
-      <label for="url">Paste an Instagram post or Reel URL</label>
-      <div class="row">
-        <input id="url" type="url" placeholder="https://www.instagram.com/reel/POST_ID/" autocomplete="off">
-        <button type="button" id="convert">Convert</button>
-      </div>
-      <div class="output" id="output">Converted link will appear here.</div>
-    </section>
+      <!-- Converter & Live Preview -->
+      <section class="converter-showcase" id="converter" aria-labelledby="converter-title">
+        <div class="unified-card">
+          <div class="converter-panel">
+            <div class="converter-eyebrow">Live converter</div>
+            <h2 class="converter-title" id="converter-title">Paste once. Share a cleaner Instagram preview.</h2>
+            <p class="converter-copy">Just add <strong>7</strong> after <strong>instagram</strong> in the URL, then send the link in your messenger — or paste it here and let us do it for you.</p>
+            <label class="input-label" for="insta-url">Paste an Instagram link or publication ID:</label>
+            <div class="input-wrapper">
+              <input type="text" id="insta-url" placeholder="instagram.com/reel/... or DaJlro2MFT6" aria-label="Instagram publication link or ID" aria-describedby="converter-hint" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+              <button class="btn-convert" id="convert-btn" type="button">Fix Link</button>
+            </div>
+            <div class="result-wrapper" id="result-wrapper">
+              <div class="result-content">
+                <span class="result-label">Ready to share</span>
+                <div class="result-text" id="result-text" title=""></div>
+              </div>
+              <button class="btn-copy" id="copy-btn" type="button">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span id="copy-btn-text">Copy Link</span>
+              </button>
+            </div>
+            <div class="converter-hint" id="converter-hint" aria-live="polite">Paste a public Instagram or Instagram7 link, or enter its shortcode/ID.</div>
+            <div class="demo-caption">
+              <span>Live demo using our own Instagram Reel</span>
+              <span class="demo-status" id="demo-status" aria-live="polite"></span>
+            </div>
+          </div>
+        </div>
 
-    <section class="grid">
-      <div class="mini"><strong>Public-first scraping</strong>Uses lightweight HTTP scraping before optional authenticated fallback.</div>
-      <div class="mini"><strong>Optional local helper</strong>Restricted/private fallback can run on loopback with cookies kept outside Git.</div>
-      <div class="mini"><strong>Selective video proxy</strong>Disabled by default; can be enabled for specific preview bots with strict limits.</div>
-    </section>
+        <div class="preview-panel">
+          <div class="phone-frame" aria-label="Live chat preview Instagram7">
+            <div class="chat-mockup-wrapper">
+              <div class="mockup-header">
+                <span class="chat-header-icon" aria-hidden="true">‹</span>
+                <span class="chat-avatar" aria-hidden="true">7</span>
+                <span class="chat-header-copy">
+                  <strong>Instagram7</strong>
+                  <span class="chat-presence-indicator" aria-label="Available"></span>
+                </span>
+                <span class="chat-header-icon" aria-hidden="true">⋮</span>
+              </div>
+              <div class="chat-bubble">
+                <div class="chat-link chat-link-placeholder" id="mockup-link" contenteditable="true" role="textbox" aria-label="Editable Instagram7 link" spellcheck="false">https://www.instagram7.com/p/...</div>
+                <div class="embed-preview" id="embed-preview-container">
+                  <!-- Dynamic Content -->
+                  <div id="preview-dynamic-content">
+                    <div class="embed-site">
+                      <div class="embed-site-icon"></div>
+                      InstaFix Revived
+                    </div>
+                    <div class="embed-title" id="preview-author">@instagram_user</div>
+                    <div class="embed-description" id="preview-caption">Paste an Instagram URL above to generate a real converted link and media preview.</div>
+                    <div class="embed-media-container" id="preview-media-container">
+                      <div class="embed-media-mockup">
+                        <div class="media-fallback">Media preview will load here</div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Skeleton Loader -->
+                  <div id="preview-loader" style="display: none;">
+                    <div class="skeleton-text title skeleton"></div>
+                    <div class="skeleton-text skeleton"></div>
+                    <div class="skeleton-text skeleton" style="width: 85%;"></div>
+                    <div class="skeleton-text short skeleton"></div>
+                    <div class="skeleton-media skeleton"></div>
+                  </div>
+                </div>
+                <div class="message-meta">
+                  <time id="mockup-time">12:00</time>
+                  <span class="message-checks" aria-label="Delivered">✓✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- How to use -->
+      <section id="how-to-use" class="use-section">
+        <h2 class="section-title">How to Use</h2>
+        <div class="grid-steps">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <h3 class="step-title">Copy Link</h3>
+            <p class="step-desc">Find the post or Reel in Instagram and copy the URL from the share menu.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <h3 class="step-title">Change Domain</h3>
+            <p class="step-desc">Simply replace <code>instagram.com</code> with <code>instagram7.com</code> in the URL (or paste it above).</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <h3 class="step-title">Share in Chat</h3>
+            <p class="step-desc">Paste the link in Telegram or another chat app. The preview card and media stream render when available.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="features-section">
+        <h2 class="section-title">Key Advantages</h2>
+        <div class="features-list">
+          <div class="feature-card">
+            <h3 class="feature-title">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              Fast Videos
+            </h3>
+            <p class="feature-desc">Play Reels and videos instantly in your chat app's native media player.</p>
+          </div>
+          <div class="feature-card">
+            <h3 class="feature-title">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              Accurate Previews
+            </h3>
+            <p class="feature-desc">Extract descriptions, author names, and image previews automatically.</p>
+          </div>
+          <div class="feature-card">
+            <h3 class="feature-title">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              Uptime & Stability
+            </h3>
+            <p class="feature-desc">Smart session rotation and rate limits protect the service from blocks.</p>
+          </div>
+          <div class="feature-card">
+            <h3 class="feature-title">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+                <path d="M12 6V12L16 14"></path>
+              </svg>
+              Privacy-first
+            </h3>
+            <p class="feature-desc">No ads, cookies, tracking, or analytics. Your requests are private.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="donate" class="donations-section">
+        <h2 class="donations-title">Support the Project</h2>
+        <p class="donations-desc">
+          InstaFix Revived powers this free, ad-free public service from a personal server. Traffic and video proxy bandwidth still require active maintenance and hosting expenses. If Instagram7.com is useful to you, consider supporting its uptime!
+        </p>
+        <div class="donations-grid">
+          <a class="donate-card paypal" href="https://paypal.me/IlliaZabolotskyi" target="_blank" rel="noopener noreferrer">
+            <div class="donate-logo">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.007 6.136c-.16-.957-.592-1.745-1.297-2.366C17.72 2.87 16.543 2.5 15.178 2.5H7.726a.65.65 0 0 0-.643.55L4.542 19.34a.39.39 0 0 0 .385.45h4.152l1.144-7.251a.65.65 0 0 1 .643-.55h2.158c3.08 0 5.485-1.251 6.195-4.83.33-1.66.19-3.08-.66-4.074z"></path>
+              </svg>
+            </div>
+            <div class="donate-name">PayPal</div>
+            <div class="donate-info">The fastest way to help cover server bills and directly fund the hosting infrastructure.</div>
+            <div class="donate-action">
+              <span>Donate with PayPal</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </div>
+          </a>
+          <a class="donate-card github" href="https://github.com/sponsors/Bl0ck154" target="_blank" rel="noopener noreferrer">
+            <div class="donate-logo">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
+              </svg>
+            </div>
+            <div class="donate-name">GitHub Sponsors</div>
+            <div class="donate-info">Support the maintainer with a one-time or recurring sponsorship via GitHub.</div>
+            <div class="donate-action">
+              <span>Sponsor on GitHub</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </div>
+          </a>
+          <a class="donate-card coffee" href="https://buymeacoffee.com/bl0ck" target="_blank" rel="noopener noreferrer">
+            <div class="donate-logo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8h12v6a6 6 0 0 1-12 0V8z"></path>
+                <path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"></path>
+                <path d="M7 3v2"></path>
+                <path d="M11 3v2"></path>
+                <path d="M15 3v2"></path>
+                <path d="M3 21h15"></path>
+              </svg>
+            </div>
+            <div class="donate-name">Buy Me a Coffee</div>
+            <div class="donate-info">Send a quick one-time tip to help with hosting, bandwidth, and ongoing maintenance.</div>
+            <div class="donate-action">
+              <span>Buy Me a Coffee</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <section class="seo-section" aria-labelledby="seo-title">
+        <h2 class="section-title" id="seo-title">Frequently Asked Questions</h2>
+        <p class="seo-intro">Instagram7.com is the public instance of <a href="https://github.com/Bl0ck154/InstaFix-Revived" target="_blank" rel="noopener noreferrer">InstaFix Revived</a>, a maintained lightweight open-source project that helps public Instagram posts and Reels generate cleaner OpenGraph and Twitter Card previews. Add 7 after instagram in the URL and share it in Telegram, Discord, Slack, social feeds, or any app that reads web metadata.</p>
+        <p class="seo-intro"><strong>Practical guides:</strong> <a href="/how-instagram7-works">see how Instagram7 works</a>, browse the <a href="/guides">Instagram preview guide hub</a>, <a href="/guides/instagram-link-preview-fixer">fix Instagram link previews</a>, improve <a href="/guides/instagram-reels-preview">Instagram Reels previews</a>, troubleshoot previews in <a href="/guides/telegram-instagram-preview">Telegram</a>, or use the <a href="/guides/discord-instagram-embed">Instagram Discord embed generator</a>.</p>
+        <div class="faq-list">
+          <article class="faq-item">
+            <h3>How does Instagram7.com fix Instagram previews?</h3>
+            <p>It reads public post metadata and serves preview tags for author names, captions, thumbnails, and playable video streams when the media is available.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Does it work with Instagram Reels?</h3>
+            <p>Yes. Public Reels are handled as video-first links, so compatible chat apps can show a vertical media preview or a playable video card.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Is this an official Instagram service?</h3>
+            <p>No. Instagram7.com is an independent open-source project maintained by Bl0ck154 and is not affiliated with Instagram, Meta, or Instagram, Inc.</p>
+          </article>
+        </div>
+      </section>
+    </main>
 
     <footer>
-      Not affiliated with Instagram, Meta, or Instagram, Inc. Inspired by and derived from <a href="https://github.com/Wikidepia/InstaFix">Wikidepia/InstaFix</a>.
+      <p><a href="https://github.com/Bl0ck154/InstaFix-Revived" target="_blank" rel="noopener noreferrer">InstaFix Revived</a> is built and maintained by Bl0ck154. Not affiliated with Instagram, Inc.</p>
+      <p>Continued from the original project <a href="https://github.com/Wikidepia/InstaFix" target="_blank" rel="noopener noreferrer">Wikidepia/InstaFix</a>.</p>
     </footer>
-  </main>
+  </div>
+
   <script>
-    const input = document.getElementById('url');
-    const output = document.getElementById('output');
-    const convert = () => {
-      const raw = input.value.trim();
-      if (!raw) { output.textContent = 'Converted link will appear here.'; return; }
-      try {
-        const u = new URL(raw);
-        if (!/(^|\.)instagram\.com$/i.test(u.hostname)) throw new Error('not instagram');
-        u.hostname = location.hostname || 'your-domain.example';
-        u.protocol = location.protocol === 'http:' || location.protocol === 'https:' ? location.protocol : 'https:';
-        output.textContent = u.toString();
-      } catch (_) {
-        output.textContent = 'Please paste a valid instagram.com post or Reel URL.';
+    (function() {
+      const inputEl = document.getElementById('insta-url');
+      const convertBtn = document.getElementById('convert-btn');
+      const resultEl = document.getElementById('result-wrapper');
+      const resultText = document.getElementById('result-text');
+      const copyBtn = document.getElementById('copy-btn');
+      const copyBtnText = document.getElementById('copy-btn-text');
+      const converterHint = document.getElementById('converter-hint');
+      const demoStatus = document.getElementById('demo-status');
+
+      const mockupLink = document.getElementById('mockup-link');
+      const previewDynamic = document.getElementById('preview-dynamic-content');
+      const previewLoader = document.getElementById('preview-loader');
+      const previewAuthor = document.getElementById('preview-author');
+      const previewCaption = document.getElementById('preview-caption');
+      const previewMediaContainer = document.getElementById('preview-media-container');
+      const mockupTime = document.getElementById('mockup-time');
+      const publicationPathRe = /^\/(?:share\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]{5,64})\/?$/i;
+      const shortcodeRe = /^[A-Za-z0-9_-]{5,64}$/;
+      const blockedUpstreamLabelRe = /og[\s_-]*instagram/i;
+      const DEMO_REEL_URL = 'https://www.instagram.com/reels/Dbidjf_C4nf/';
+      const DEMO_REEL_ID = 'Dbidjf_C4nf';
+      const DEMO_VIDEO_URL = '/assets/demo/instagram7-test-reel.mp4';
+      const DEMO_POSTER_URL = '/assets/demo/instagram7-test-reel-poster.webp';
+      const DEMO_SESSION_KEY = 'instagram7.live-demo.seen.v2';
+      let previewTimer = null;
+      let previewAbortController = null;
+      let lastPreviewKey = '';
+      let convertedFullURL = '';
+      let demoActive = false;
+      let demoUserHasTakenOver = false;
+      const demoTimers = new Set();
+
+      function normalizeInputDisplay(value) {
+        let normalized = value.trim().replace(/^[\u201c\u201d"']+|[\u201c\u201d"']+$/g, '');
+        const embeddedURL = normalized.match(/https?:\/\/(?:www\.|m\.)?instagram(?:7)?\.com\/[^\s<>"']+/i);
+        if (embeddedURL) normalized = embeddedURL[0];
+        return normalized.replace(/^https?:\/\//i, '').replace(/[\])},.;]+$/, '');
       }
-    };
-    document.getElementById('convert').addEventListener('click', convert);
-    input.addEventListener('input', convert);
+
+      function publicationResult(kind, postId, rawInput) {
+        const normalizedKind = /^(reel|reels|tv)$/i.test(kind) ? kind.toLowerCase() : 'p';
+        const canonicalKind = rawInput ? 'p' : normalizedKind;
+        return {
+          valid: true,
+          kind: canonicalKind,
+          postId: postId,
+          rawInput: Boolean(rawInput),
+          inputDisplay: rawInput ? postId : 'www.instagram.com/' + canonicalKind + '/' + postId + '/',
+          display: 'www.instagram7.com/' + canonicalKind + '/' + postId + '/',
+          full: 'https://www.instagram7.com/' + canonicalKind + '/' + postId + '/',
+          preferVideo: /^(reel|reels|tv)$/i.test(canonicalKind)
+        };
+      }
+
+      function parseInstagramPublication(raw) {
+        const normalized = normalizeInputDisplay(raw);
+        if (!normalized) return {empty: true};
+        if (shortcodeRe.test(normalized)) {
+          return publicationResult('p', normalized, true);
+        }
+        if (/^[A-Za-z0-9_-]+$/.test(normalized)) {
+          if (normalized.length < 5) {
+            return {incomplete: true, reason: 'Keep typing the publication shortcode or ID.'};
+          }
+          return {valid: false, reason: 'That publication ID is too long. Paste the original Instagram link instead.'};
+        }
+        let parsed;
+        try {
+          parsed = new URL('https://' + normalized);
+        } catch (_) {
+          return {valid: false, reason: 'Paste a publication URL or an ID such as DaJlro2MFT6 — not a profile name or sentence.'};
+        }
+        const host = parsed.hostname.toLowerCase();
+        const instagramHost = host === 'instagram.com' || host === 'www.instagram.com' || host === 'm.instagram.com';
+        const instagram7Host = host === 'instagram7.com' || host === 'www.instagram7.com';
+        if (!instagramHost && !instagram7Host) {
+          return {valid: false, reason: 'Use an instagram.com or instagram7.com publication link. Other domains are not accepted.'};
+        }
+        const match = parsed.pathname.match(publicationPathRe);
+        if (!match) {
+          return {valid: false, reason: 'This is not a publication link. Copy a public URL containing /p/, /reel/, /reels/, or /tv/.'};
+        }
+        return publicationResult(match[1], match[2], false);
+      }
+
+      function setHint(message, type) {
+        converterHint.textContent = message;
+        converterHint.classList.remove('error', 'success');
+        if (type) converterHint.classList.add(type);
+      }
+
+      function schedulePreview(postId, preferVideo) {
+        const key = postId + ':' + (preferVideo ? 'video' : 'default');
+        if (key === lastPreviewKey) return;
+        lastPreviewKey = key;
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(function() {
+          loadPreview(postId, preferVideo);
+        }, 250);
+      }
+
+      function setMediaFallback(message) {
+        previewMediaContainer.innerHTML = '<div class="embed-media-mockup"><div class="media-fallback">' + message + '</div></div>';
+      }
+
+      function safeUsername(value) {
+        const username = String(value || '').trim().replace(/^@+/, '');
+        if (!username || blockedUpstreamLabelRe.test(username)) return 'instagram_creator';
+        return username;
+      }
+
+      function safeCaption(value) {
+        const caption = String(value || '').trim();
+        if (!caption) return 'Public Instagram publication';
+        return caption.replace(/og[\s_-]*instagram/ig, 'Instagram');
+      }
+
+      function preloadMediaBackground(postId, targetEl, fallbackMessage, onReady) {
+        const imageUrl = '/images/' + postId + '/1';
+        const tester = new Image();
+        tester.referrerPolicy = 'no-referrer';
+        tester.onload = function() {
+          targetEl.style.backgroundImage = "linear-gradient(rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.16)), url('" + imageUrl + "')";
+          if (onReady) onReady();
+        };
+        tester.onerror = function() {
+          targetEl.innerHTML = '<div class="media-fallback">' + fallbackMessage + '</div>';
+        };
+        tester.src = imageUrl;
+      }
+
+      function resetPreview() {
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = null;
+        if (previewAbortController) previewAbortController.abort();
+        previewAbortController = null;
+        lastPreviewKey = '';
+        convertedFullURL = '';
+        mockupLink.textContent = 'https://www.instagram7.com/p/...';
+        mockupLink.classList.add('chat-link-placeholder');
+        previewAuthor.textContent = '@instagram_user';
+        previewCaption.textContent = 'Paste an Instagram URL above to generate a real converted link and media preview.';
+        previewMediaContainer.innerHTML = '<div class="embed-media-mockup"><div class="media-fallback">Media preview will load here</div></div>';
+        previewLoader.style.display = 'none';
+        previewDynamic.style.display = 'block';
+      }
+
+      function resetConverter(message, type) {
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = null;
+        lastPreviewKey = '';
+        convertedFullURL = '';
+        resultEl.classList.remove('active');
+        resultText.textContent = '';
+        resultText.title = '';
+        copyBtn.classList.remove('copied');
+        copyBtnText.textContent = 'Copy Link';
+        inputEl.classList.toggle('invalid', type === 'error');
+        setHint(message || 'Paste a public Instagram or Instagram7 link, or enter its shortcode/ID.', type);
+        resetPreview();
+      }
+
+      function renderImage(postId, fallbackMessage, onReady) {
+        previewMediaContainer.innerHTML = '';
+        const imageDiv = document.createElement('div');
+        imageDiv.className = 'embed-media-mockup';
+        previewMediaContainer.appendChild(imageDiv);
+        preloadMediaBackground(postId, imageDiv, fallbackMessage || 'Preview image unavailable. The fixed link can still be copied.', onReady);
+      }
+
+      function renderOwnedDemoPoster() {
+        previewMediaContainer.innerHTML = '';
+        const imageDiv = document.createElement('div');
+        imageDiv.className = 'embed-media-mockup';
+        previewMediaContainer.appendChild(imageDiv);
+        const tester = new Image();
+        tester.onload = function() {
+          imageDiv.style.backgroundImage = "linear-gradient(rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.16)), url('" + DEMO_POSTER_URL + "')";
+          if (demoActive && !demoUserHasTakenOver) demoStatus.textContent = 'Demo poster ready';
+        };
+        tester.onerror = function() {
+          imageDiv.innerHTML = '<div class="media-fallback">Demo media is temporarily unavailable. The fixed link can still be copied.</div>';
+          if (demoActive && !demoUserHasTakenOver) demoStatus.textContent = 'Converted link ready';
+        };
+        tester.src = DEMO_POSTER_URL;
+      }
+
+      function renderVideo(postId, sourceUrl, posterUrl, onReady, onError) {
+        previewMediaContainer.innerHTML = '';
+        const video = document.createElement('video');
+        video.className = 'video-element';
+        video.src = sourceUrl || ('/videos/' + postId + '/1');
+        video.poster = posterUrl || ('/images/' + postId + '/1');
+        video.controls = true;
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        video.referrerPolicy = 'no-referrer';
+        video.addEventListener('loadedmetadata', function() {
+          if (onReady) onReady();
+        }, {once: true});
+        video.onerror = onError || function() {
+          renderImage(postId, 'Video stream is temporarily unavailable. The fixed link can still be copied.');
+        };
+        previewMediaContainer.appendChild(video);
+      }
+
+      function renderOwnedDemoVideo() {
+        previewAuthor.textContent = '@insta7_com';
+        previewCaption.textContent = 'Add 7. Share better. Live demo using our own Instagram Reel.';
+        renderVideo(DEMO_REEL_ID, DEMO_VIDEO_URL, DEMO_POSTER_URL, function() {
+          if (demoActive && !demoUserHasTakenOver) demoStatus.textContent = 'Demo preview ready';
+        }, function() {
+          renderOwnedDemoPoster();
+        });
+      }
+
+      function loadPreview(postId, preferVideo) {
+        if (!postId) return;
+        const requestKey = postId + ':' + (preferVideo ? 'video' : 'default');
+        if (previewAbortController) previewAbortController.abort();
+        const requestController = new AbortController();
+        previewAbortController = requestController;
+
+        // Show loading state
+        previewDynamic.style.display = 'none';
+        previewLoader.style.display = 'block';
+
+        const apiUrl = '/api/' + postId + (preferVideo ? '?kind=reel' : '');
+        fetch(apiUrl, {signal: requestController.signal})
+          .then(response => {
+            if (!response.ok) throw new Error('Not found');
+            return response.json();
+          })
+          .then(data => {
+            if (lastPreviewKey !== requestKey) return;
+            previewAuthor.textContent = '@' + safeUsername(data.Username);
+            previewCaption.textContent = safeCaption(data.Caption);
+
+            const mediaType = data.Medias && data.Medias[0] && String(data.Medias[0].TypeName || '').toLowerCase();
+            const isVideo = mediaType && mediaType.includes('video');
+
+            if (isVideo) {
+              renderVideo(postId, '', '', function() {
+                if (demoActive && !demoUserHasTakenOver) demoStatus.textContent = 'Real preview ready';
+              }, function() {
+                if (demoActive && postId === DEMO_REEL_ID && !demoUserHasTakenOver) {
+                  renderOwnedDemoVideo();
+                  return;
+                }
+                renderImage(postId, 'Video stream is temporarily unavailable. The fixed link can still be copied.');
+              });
+            } else if (demoActive && postId === DEMO_REEL_ID && !demoUserHasTakenOver) {
+              renderOwnedDemoVideo();
+            } else {
+              renderImage(postId, '', function() {
+                if (demoActive && !demoUserHasTakenOver) demoStatus.textContent = 'Preview image ready';
+              });
+            }
+
+            previewLoader.style.display = 'none';
+            previewDynamic.style.display = 'block';
+          })
+          .catch(function(error) {
+            if (error && error.name === 'AbortError') return;
+            if (lastPreviewKey !== requestKey) return;
+            previewAuthor.textContent = '@instagram_creator';
+            previewCaption.textContent = 'The fixed link is ready. Detailed metadata is temporarily unavailable in this on-page preview.';
+            if (demoActive && postId === DEMO_REEL_ID && !demoUserHasTakenOver) {
+              renderOwnedDemoVideo();
+            } else if (preferVideo) {
+              renderImage(postId, 'Video metadata is temporarily unavailable. The fixed link can still be copied.');
+            } else {
+              renderImage(postId);
+            }
+            previewLoader.style.display = 'none';
+            previewDynamic.style.display = 'block';
+          })
+          .finally(function() {
+            if (previewAbortController === requestController) previewAbortController = null;
+          });
+      }
+
+      function convertUrl(options) {
+        const preserveInput = Boolean(options && options.preserveInput);
+        const normalized = normalizeInputDisplay(inputEl.value);
+        if (!preserveInput && inputEl.value !== normalized) {
+          inputEl.value = normalized;
+        }
+        const parsed = parseInstagramPublication(normalized);
+        if (parsed.empty) {
+          resetConverter('Paste a public Instagram or Instagram7 link, or enter its shortcode/ID.');
+          return;
+        }
+        if (parsed.incomplete) {
+          resetConverter(parsed.reason);
+          return;
+        }
+        if (!parsed.valid) {
+          resetConverter(parsed.reason, 'error');
+          return;
+        }
+
+        convertedFullURL = parsed.full;
+        if (!parsed.rawInput && !preserveInput) inputEl.value = parsed.inputDisplay;
+        inputEl.classList.remove('invalid');
+        resultText.textContent = parsed.display;
+        resultText.title = parsed.full;
+        resultEl.classList.add('active');
+        mockupLink.textContent = parsed.full;
+        mockupLink.classList.remove('chat-link-placeholder');
+        setHint('', '');
+        copyBtn.classList.remove('copied');
+        copyBtnText.textContent = 'Copy Link';
+        schedulePreview(parsed.postId, parsed.preferVideo);
+      }
+
+      function scheduleDemoStep(callback, delay) {
+        const timer = setTimeout(function() {
+          demoTimers.delete(timer);
+          if (!demoUserHasTakenOver) callback();
+        }, delay);
+        demoTimers.add(timer);
+      }
+
+      function clearDemoTimers() {
+        demoTimers.forEach(function(timer) { clearTimeout(timer); });
+        demoTimers.clear();
+      }
+
+      function demoWasSeenThisSession() {
+        try {
+          return window.sessionStorage.getItem(DEMO_SESSION_KEY) === '1';
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function rememberDemoForSession() {
+        try {
+          window.sessionStorage.setItem(DEMO_SESSION_KEY, '1');
+        } catch (_) {
+          // The demo can still run once on this page when storage is unavailable.
+        }
+      }
+
+      function addSevenAndConvertDemo() {
+        if (!demoActive || demoUserHasTakenOver) return;
+        inputEl.value = DEMO_REEL_URL.replace('instagram.com', 'instagram7.com');
+        inputEl.classList.add('demo-seven-added');
+        demoStatus.textContent = 'Adding 7';
+        scheduleDemoStep(function() {
+          inputEl.classList.remove('demo-seven-added');
+          demoStatus.textContent = 'Loading real preview';
+          convertUrl({preserveInput: true});
+        }, 650);
+      }
+
+      function typeDemoURL() {
+        if (!demoActive || demoUserHasTakenOver) return;
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        inputEl.value = '';
+        resetConverter('Live demo: entering a real public Reel URL.');
+        demoStatus.textContent = 'Typing Reel URL';
+
+        if (reduceMotion) {
+          inputEl.value = DEMO_REEL_URL;
+          scheduleDemoStep(addSevenAndConvertDemo, 300);
+          return;
+        }
+
+        let characterIndex = 0;
+        function typeNextCharacter() {
+          if (!demoActive || demoUserHasTakenOver) return;
+          characterIndex += 1;
+          inputEl.value = DEMO_REEL_URL.slice(0, characterIndex);
+          if (characterIndex < DEMO_REEL_URL.length) {
+            scheduleDemoStep(typeNextCharacter, 28);
+          } else {
+            scheduleDemoStep(addSevenAndConvertDemo, 400);
+          }
+        }
+        typeNextCharacter();
+      }
+
+      function scheduleLiveDemo() {
+        if (demoWasSeenThisSession()) return;
+        rememberDemoForSession();
+        demoActive = true;
+        const startDelay = Math.round(1200 + Math.random() * 600);
+        scheduleDemoStep(typeDemoURL, startDelay);
+      }
+
+      function letUserTakeOver(event) {
+        if (!event.isTrusted || demoUserHasTakenOver || !demoActive) return;
+        const currentUserValue = event.type === 'input' ? inputEl.value : '';
+        demoUserHasTakenOver = true;
+        demoActive = false;
+        clearDemoTimers();
+        inputEl.classList.remove('demo-seven-added');
+        inputEl.value = '';
+        demoStatus.textContent = '';
+        resetConverter();
+        if (currentUserValue) inputEl.value = currentUserValue;
+      }
+
+      ['focus', 'pointerdown', 'keydown', 'paste', 'beforeinput', 'input'].forEach(function(eventName) {
+        inputEl.addEventListener(eventName, letUserTakeOver);
+      });
+      ['focus', 'pointerdown', 'keydown'].forEach(function(eventName) {
+        convertBtn.addEventListener(eventName, letUserTakeOver);
+      });
+
+      inputEl.addEventListener('input', convertUrl);
+      convertBtn.addEventListener('click', convertUrl);
+      inputEl.addEventListener('paste', function() {
+        setTimeout(convertUrl, 0);
+      });
+      function applyEditedMockupLink() {
+        const edited = mockupLink.textContent.trim();
+        if (/instagram7\.com/i.test(edited)) {
+          inputEl.value = normalizeInputDisplay(edited.replace(/instagram7\.com/i, 'instagram.com'));
+          convertUrl();
+          return;
+        }
+        if (/instagram\.com/i.test(edited)) {
+          inputEl.value = normalizeInputDisplay(edited);
+          convertUrl();
+          return;
+        }
+        resetConverter('Edit the mock link to a valid instagram7.com post or Reel URL.', 'error');
+      }
+
+      mockupLink.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          mockupLink.blur();
+        }
+      });
+      mockupLink.addEventListener('blur', applyEditedMockupLink);
+
+      copyBtn.addEventListener('click', async () => {
+        const textToCopy = convertedFullURL || ('https://' + resultText.textContent.trim());
+        if (!convertedFullURL) return;
+        try {
+          await navigator.clipboard.writeText(textToCopy);
+          copyBtn.classList.add('copied');
+          copyBtnText.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.classList.remove('copied');
+            copyBtnText.textContent = 'Copy Link';
+          }, 2000);
+        } catch (err) {
+          const textInput = document.createElement('textarea');
+          textInput.value = textToCopy;
+          textInput.style.position = 'fixed';
+          textInput.style.opacity = '0';
+          document.body.appendChild(textInput);
+          textInput.select();
+          try {
+            document.execCommand('copy');
+            copyBtn.classList.add('copied');
+            copyBtnText.textContent = 'Copied!';
+            setTimeout(() => {
+              copyBtn.classList.remove('copied');
+              copyBtnText.textContent = 'Copy Link';
+            }, 2000);
+          } catch (e) {
+            console.error('Failed to copy', e);
+          }
+          document.body.removeChild(textInput);
+        }
+      });
+
+      if (mockupTime) {
+        mockupTime.textContent = new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      scheduleLiveDemo();
+    })();
   </script>
 </body>
 </html>`
 
-func Home(w io.Writer) {
-	_, _ = io.WriteString(w, homeHTML)
+func Home(wr io.Writer) {
+	wr.Write(S2B(homeHTML))
 }

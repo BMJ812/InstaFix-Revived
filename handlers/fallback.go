@@ -8,8 +8,10 @@ import (
 )
 
 func FallbackPreview(w http.ResponseWriter, r *http.Request) {
-	const width = 1200
-	const height = 630
+	width, height := 1200, 630
+	if r.URL.Query().Get("kind") == "reel" {
+		width, height = 720, 1280
+	}
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
@@ -21,10 +23,10 @@ func FallbackPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	// Simple centered card shape. No text/font dependency, so this stays tiny and
 	// deterministic while still producing a real image for preview crawlers.
-	drawRect(img, 210, 145, 990, 485, color.RGBA{R: 255, G: 255, B: 255, A: 38})
-	drawRect(img, 250, 185, 950, 445, color.RGBA{R: 255, G: 255, B: 255, A: 28})
-	drawRect(img, 315, 245, 885, 305, color.RGBA{R: 255, G: 255, B: 255, A: 58})
-	drawRect(img, 390, 345, 810, 385, color.RGBA{R: 255, G: 255, B: 255, A: 48})
+	drawRect(img, width*7/40, height*23/100, width*33/40, height*77/100, color.RGBA{R: 255, G: 255, B: 255, A: 38})
+	drawRect(img, width*5/24, height*29/100, width*19/24, height*71/100, color.RGBA{R: 255, G: 255, B: 255, A: 28})
+	drawRect(img, width*21/80, height*39/100, width*59/80, height*49/100, color.RGBA{R: 255, G: 255, B: 255, A: 58})
+	drawRect(img, width*13/40, height*55/100, width*27/40, height*61/100, color.RGBA{R: 255, G: 255, B: 255, A: 48})
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	_ = png.Encode(w, img)

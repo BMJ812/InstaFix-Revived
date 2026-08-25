@@ -15,7 +15,7 @@ import (
 
 var VideoProxyAddr string
 var PreviewVideoProxyEnabled bool
-var PreviewVideoProxyUserAgents = []string{"telegrambot", "discordbot", "facebookexternalhit", "whatsapp", "slackbot", "twitterbot", "xbot", "skypeuripreview", "linkedinbot"}
+var PreviewVideoProxyUserAgents = []string{"telegrambot", "discordbot", "facebookexternalhit", "whatsapp", "slackbot", "twitterbot", "xbot", "skypeuripreview", "linkedinbot", "mastodon", "vkshare", "revoltchat"}
 var PreviewVideoCDNRedirectEnabled bool
 var PreviewVideoCDNRedirectUserAgents = []string{"telegrambot"}
 var PreviewVideoProxyTimeout = 25 * time.Second
@@ -33,6 +33,10 @@ var previewVideoProxyClient = &http.Client{
 }
 
 func ConfigurePreviewVideoProxy(enabled bool, allowlist string) {
+	if statelessRuntimeEnabled() {
+		PreviewVideoProxyEnabled = false
+		return
+	}
 	PreviewVideoProxyEnabled = enabled
 	if items := parseUserAgentAllowlist(allowlist); len(items) > 0 {
 		PreviewVideoProxyUserAgents = items
@@ -40,6 +44,10 @@ func ConfigurePreviewVideoProxy(enabled bool, allowlist string) {
 }
 
 func ConfigurePreviewVideoCDNRedirect(enabled bool, allowlist string) {
+	if statelessRuntimeEnabled() {
+		PreviewVideoCDNRedirectEnabled = false
+		return
+	}
 	PreviewVideoCDNRedirectEnabled = enabled
 	if items := parseUserAgentAllowlist(allowlist); len(items) > 0 {
 		PreviewVideoCDNRedirectUserAgents = items
@@ -68,14 +76,14 @@ func ConfigurePreviewVideoProxyTimeout(seconds int) {
 }
 
 func shouldProxyPreviewVideo(userAgent string) bool {
-	if !PreviewVideoProxyEnabled || scraper.AuthHelperURL == "" {
+	if statelessRuntimeEnabled() || !PreviewVideoProxyEnabled || scraper.AuthHelperURL == "" {
 		return false
 	}
 	return userAgentMatches(userAgent, PreviewVideoProxyUserAgents)
 }
 
 func shouldRedirectPreviewVideo(userAgent string) bool {
-	if !PreviewVideoCDNRedirectEnabled {
+	if statelessRuntimeEnabled() || !PreviewVideoCDNRedirectEnabled {
 		return false
 	}
 	return userAgentMatches(userAgent, PreviewVideoCDNRedirectUserAgents)
@@ -92,6 +100,9 @@ func userAgentMatches(userAgent string, allowlist []string) bool {
 }
 
 func Videos(w http.ResponseWriter, r *http.Request) {
+	if rejectStatelessLegacyMedia(w) {
+		return
+	}
 	postID := chi.URLParam(r, "postID")
 	mediaNum, err := strconv.Atoi(chi.URLParam(r, "mediaNum"))
 	if err != nil {
@@ -99,7 +110,7 @@ func Videos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := offloadGetDataPreferVideo(postID)
+	item, err := getOffloadData(r, postID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -119,6 +130,9 @@ func Videos(w http.ResponseWriter, r *http.Request) {
 }
 
 func proxyVideoThroughAuthHelper(w http.ResponseWriter, r *http.Request, postID, videoURL string) bool {
+	if statelessRuntimeEnabled() {
+		return false
+	}
 	base, err := url.Parse(scraper.AuthHelperURL)
 	if err != nil {
 		slog.Warn("preview video proxy skipped: invalid helper URL", "postID", postID, "err", err)

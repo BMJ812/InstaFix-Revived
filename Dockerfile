@@ -1,49 +1,49 @@
 # syntax=docker/dockerfile:1
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=$BUILDPLATFORM golang:1.23 AS app-builder
+FROM --platform=$BUILDPLATFORM golang:1.23 as app-builder
 
-# Set destination for COPY
 WORKDIR /app
 
-# Download Go modules
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the source code. Note the slash at the end, as explained in
-# https://docs.docker.com/engine/reference/builder/#copy
 COPY *.go ./
+COPY BingSiteAuth.xml ./
 COPY handlers/ ./handlers/
 COPY utils/ ./utils/
 COPY observability/ ./observability/
 COPY views/ ./views/
+COPY video/instagram7-reel/out/instagram7-test-reel.mp4 ./video/instagram7-reel/out/instagram7-test-reel.mp4
+COPY video/instagram7-reel/out/instagram7-test-reel-poster.webp ./video/instagram7-reel/out/instagram7-test-reel-poster.webp
 
-# This is the architecture you’re building for, which is passed in by the builder.
-# Placing it here allows the previous steps to be cached across architectures.
 ARG TARGETARCH
+ARG COMMIT_SHA=dev
+ARG BUILD_VERSION=dev
+ARG BUILD_TIME=unknown
 
-# Build
-RUN GOOS=linux GOARCH=$TARGETARCH go build -tags netgo,osusergo -ldflags '-extldflags "-static"'
+# CGO=0 keeps the application binary portable. Build identity is compiled in
+# so /healthz can prove exactly which image is running.
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build \
+    -tags netgo,osusergo \
+    -ldflags "-s -w -X main.buildCommit=${COMMIT_SHA} -X main.buildVersion=${BUILD_VERSION} -X main.buildTime=${BUILD_TIME}" \
+    -o /app/instafix .
 
-# Run in scratch container
-FROM scratch
-# the test program:
+# Oversized Telegram reels need one narrow fallback that remuxes Instagram's
+# separate DASH video+audio tracks. Alpine keeps the ffmpeg runtime relatively
+# small while the Go service itself remains an unprivileged static binary.
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates ffmpeg \
+    && chmod 1777 /tmp
 COPY --from=app-builder /app/instafix /instafix
-# the tls certificates:
-# NB: this pulls directly from the upstream image, which already has ca-certificates:
-COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Optional:
-# To bind to a TCP port, runtime parameters must be supplied to the docker command.
-# But we can document in the Dockerfile what ports
-# the application is going to listen on by default.
-# https://docs.docker.com/engine/reference/builder/#expose
+WORKDIR /tmp
+USER 65532:65532
+
 EXPOSE 3000
 
-# Keep Go memory spikes bounded by default. Grid generation also has hard
-# image/canvas limits in the application code.
 ENV GOMEMLIMIT=384MiB
 ENV GOGC=50
+ENV TMPDIR=/tmp
 
-# Run the app
 ENTRYPOINT ["/instafix"]
