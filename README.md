@@ -42,11 +42,15 @@ Add `7` to the Instagram URL and your chat app gets a cleaner embed:
 
 ## Telegram Reel previews
 
-Telegram's fresh WebPage video ingestion was measured at an exact **20 MiB** boundary: `20,971,520` bytes is accepted, while `20,971,521` bytes is not attached as the preview video document. InstaFix Revived therefore keeps small originals untouched and uses a fast-first compact path for larger Reels, with a smart encode targeting about 500 KB below the boundary.
+Telegram's fresh WebPage video ingestion was measured at an exact **20 MiB** boundary: `20,971,520` bytes is accepted, while `20,971,521` bytes is not attached as the preview video document. InstaFix Revived therefore keeps small originals untouched and, for Telegram only, uses a fast DASH video+audio remux for oversized Reels. The compact path uses stream copy rather than an automatic x264 re-encode.
 
 The investigation also ruled out several misleading causes such as OG tag order, redirects, Cloudflare proxying and simple hostname changes. Older >20 MiB previews can still appear to work when Telegram already has a historical media document cached.
 
 See [Telegram Reel previews: current design and the 20 MiB boundary](docs/telegram-reel-previews.md) for the measured behavior, fallback design, cache notes and monitoring fields.
+
+## Optional Cloudflare edge
+
+InstaFix does not require a Cloudflare Worker. A normal Caddy/Nginx/reverse-proxy deployment is enough. Self-hosters who want an edge layer similar in purpose to the public instance can start from the generic [Cloudflare Worker example](examples/cloudflare-worker/README.md). It contains no `instagram7.com` production routes, diagnostics, account IDs, or secrets.
 
 ## Why this exists
 

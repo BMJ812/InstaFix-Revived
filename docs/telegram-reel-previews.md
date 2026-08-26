@@ -97,4 +97,4 @@ Never commit real bot tokens, admin tokens, or Instagram cookies.
 
 The 20 MiB rule is a Telegram WebPage media-ingestion boundary, not a Cloudflare or reverse-proxy limit. A deployment can use any suitable edge/CDN or reverse proxy in front of InstaFix; the size behavior was reproduced independently of those delivery details.
 
-The public repository intentionally does not include private production Worker configuration or deployment secrets.
+The public repository intentionally does not include private production Worker configuration or deployment secrets. Self-hosters can use the generic [`examples/cloudflare-worker/`](../examples/cloudflare-worker/README.md) template as an optional starting point.
