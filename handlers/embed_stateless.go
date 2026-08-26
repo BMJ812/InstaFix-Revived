@@ -194,9 +194,9 @@ func EmbedStateless(w http.ResponseWriter, r *http.Request) {
 		telegramVideoOversized = telegramOriginalSizeKnown && MaxInlineVideoBytes > 0 && telegramOriginalBytes > MaxInlineVideoBytes
 		if telegramVideoOversized {
 			if sources, compactErr := scraper.ResolveCompactPreviewAV(postID, MaxInlineVideoBytes); compactErr == nil && statelessMediaURLPlayable(sources.Video.URL, now) {
-				// The compact endpoint now prefers a smart transcode of the progressive
-				// source, so keep the original presentation dimensions here. The DASH
-				// representation is only the last-resort fallback if smart compression fails.
+				// The compact endpoint serves the selected DASH video+audio remux as the
+				// final oversized-Reel media. Keep the original presentation dimensions
+				// here so the embed layout remains stable across compact representations.
 				compactTelegramVideo = true
 				w.Header().Set("X-InstaFix-Preview-Video", "compact-av")
 			}
