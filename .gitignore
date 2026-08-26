@@ -35,10 +35,11 @@
 !scripts/*.yaml
 !scripts/*.py
 !BingSiteAuth.xml
-!deploy/cloudflare-worker/
-!deploy/cloudflare-worker/src/
-!deploy/cloudflare-worker/src/*.js
-!deploy/cloudflare-worker/wrangler.jsonc
+!examples/cloudflare-worker/
+!examples/cloudflare-worker/README.md
+!examples/cloudflare-worker/src/
+!examples/cloudflare-worker/src/*.js
+!examples/cloudflare-worker/*.jsonc
 
 # Keep the two public test/demo assets required by the current Dockerfile.
 /video/instagram7-reel/**

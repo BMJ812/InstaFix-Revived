@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "instafix-edge-example",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "vars": {
+    "ORIGIN": "https://origin.example.com"
+  }
+
+  // Add your own Cloudflare route/custom-domain configuration here.
+  // Do not reuse another deployment's account IDs, zone IDs, domains, or secrets.
+}
