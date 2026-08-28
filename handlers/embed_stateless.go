@@ -189,16 +189,35 @@ func EmbedStateless(w http.ResponseWriter, r *http.Request) {
 	telegramOriginalBytes := int64(0)
 	telegramOriginalSizeKnown := false
 	telegramVideoOversized := false
+	telegramVideoOnlyDASH := false
+	telegramNoAudioExpected := false
+	telegramVideoAudioMuxUnavailable := false
 	if selected == 0 && media.IsVideo() && trackTelegramVideo {
 		telegramOriginalBytes, telegramOriginalSizeKnown = inlineVideoContentLength(media.URL)
 		telegramVideoOversized = telegramOriginalSizeKnown && MaxInlineVideoBytes > 0 && telegramOriginalBytes > MaxInlineVideoBytes
-		if telegramVideoOversized {
-			if sources, compactErr := scraper.ResolveCompactPreviewAV(postID, MaxInlineVideoBytes); compactErr == nil && statelessMediaURLPlayable(sources.Video.URL, now) {
-				// The compact endpoint serves the selected DASH video+audio remux as the
-				// final oversized-Reel media. Keep the original presentation dimensions
-				// here so the embed layout remains stable across compact representations.
+		telegramVideoOnlyDASH = scraper.IsLikelyVideoOnlyDASHURL(media.URL)
+		if telegramVideoOversized || telegramVideoOnlyDASH {
+			sources, compactErr := scraper.ResolveCompactPreviewAV(postID, MaxInlineVideoBytes)
+			if compactErr == nil && statelessMediaURLPlayable(sources.Video.URL, now) {
+				// Keep the original presentation dimensions while the compact endpoint
+				// remuxes Instagram's separate DASH video+audio tracks without re-encoding.
 				compactTelegramVideo = true
-				w.Header().Set("X-InstaFix-Preview-Video", "compact-av")
+				if telegramVideoOnlyDASH {
+					w.Header().Set("X-InstaFix-Preview-Video", "compact-av-audio")
+				} else {
+					w.Header().Set("X-InstaFix-Preview-Video", "compact-av")
+				}
+			} else if telegramVideoOnlyDASH && errors.Is(compactErr, scraper.ErrNoAudioExpected) {
+				// A genuinely silent Reel is valid. In that case the video-only DASH
+				// representation is the complete media, so keep cheap direct delivery.
+				telegramNoAudioExpected = true
+				w.Header().Set("X-InstaFix-Preview-Video", "direct-no-audio-expected")
+			} else if telegramVideoOnlyDASH {
+				// Do not knowingly advertise a video-only DASH track when Instagram says
+				// the Reel has audio. Falling back to the cover is less misleading than
+				// a silent animation and the decision is recorded below for diagnostics.
+				telegramVideoAudioMuxUnavailable = true
+				w.Header().Set("X-InstaFix-Preview-Video", "image-fallback-audio-unavailable")
 			}
 		}
 	}
@@ -273,6 +292,8 @@ func EmbedStateless(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-InstaFix-Telegram-Diagnostic", "ogmedia")
 		} else if compactTelegramVideo {
 			viewsData.VideoURL = mediaRoute + "?compact=av4"
+		} else if trackTelegramVideo && telegramVideoAudioMuxUnavailable {
+			viewsData.VideoURL = ""
 		} else {
 			viewsData.VideoURL = mediaRoute + "?v=" + mediaVersion
 		}
@@ -290,8 +311,14 @@ func EmbedStateless(w http.ResponseWriter, r *http.Request) {
 
 	if trackTelegramVideo {
 		switch {
+		case media.IsVideo() && compactTelegramVideo && telegramVideoOnlyDASH:
+			observability.Default.RecordTelegramVideoDecision(postID, "compact", "video_only_dash_source", telegramOriginalBytes)
 		case media.IsVideo() && compactTelegramVideo:
 			observability.Default.RecordTelegramVideoDecision(postID, "compact", "oversized_over_20_mib", telegramOriginalBytes)
+		case media.IsVideo() && telegramNoAudioExpected:
+			observability.Default.RecordTelegramVideoDecision(postID, "direct", "no_audio_expected", telegramOriginalBytes)
+		case media.IsVideo() && telegramVideoAudioMuxUnavailable:
+			observability.Default.RecordTelegramVideoDecision(postID, "expected_image", "video_only_dash_compact_unavailable", telegramOriginalBytes)
 		case media.IsVideo() && telegramVideoOversized:
 			observability.Default.RecordTelegramVideoDecision(postID, "expected_image", "oversized_compact_unavailable", telegramOriginalBytes)
 		case media.IsVideo() && telegramOriginalSizeKnown:

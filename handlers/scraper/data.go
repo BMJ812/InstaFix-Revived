@@ -13,6 +13,7 @@ import (
 	"instafix/utils"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -2415,6 +2416,25 @@ func scrapeFromGQLMobile(postID string) ([]byte, error) {
 		return nil, err
 	}
 	return doGraphQLRequest(req, "logged-out GraphQL")
+}
+
+// scrapeFromGQLMobileDirect bypasses the public proxy pool. It is reserved for
+// cases where a proxy returned syntactically valid GraphQL data but stripped
+// part of the DASH manifest (notably the audio AdaptationSet).
+func scrapeFromGQLMobileDirect(postID string) ([]byte, error) {
+	req, err := newLoggedOutGraphQLRequest(postID)
+	if err != nil {
+		return nil, err
+	}
+	directTransport := transportNoProxy.Clone()
+	directTransport.DisableKeepAlives = true
+	dialer := &net.Dialer{Timeout: timeout, KeepAlive: -1}
+	directTransport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return dialer.DialContext(ctx, "tcp4", address)
+	}
+	return doGraphQLRequestSequential(req, "logged-out GraphQL direct", []graphQLClientAttempt{{
+		client: &http.Client{Transport: directTransport, Timeout: timeout},
+	}})
 }
 
 func newLoggedOutGraphQLRequest(postID string) (*http.Request, error) {
