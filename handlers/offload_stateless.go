@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+var offloadRefreshDataNoAuthPreserveMetadata = scraper.RefreshDataNoAuthPreserveMetadata
+
 // OffloadStateless keeps preview metadata on a stable same-origin URL. Normal
 // media requests stay redirect-only; the compact=av1/av2 Telegram fallback is the
 // one deliberate exception and serves a small remuxed MP4 with audio.
@@ -31,8 +33,33 @@ func OffloadStateless(w http.ResponseWriter, r *http.Request) {
 	item, fetchErr := offloadGetDataPreferVideoQuiet(postID)
 	target, media, ok := statelessOffloadTarget(item, mediaNum, thumbnail, time.Now())
 	if !ok {
-		refreshed, refreshErr := offloadRefreshDataPreferVideo(postID)
-		if refreshErr != nil {
+		// A missing carousel index is not inherently a video failure. Refresh the
+		// complete anonymous publication first so image-only carousels can recover
+		// additional slides that were absent from stale/partial cached metadata.
+		refreshed, refreshErr := offloadRefreshDataNoAuthPreserveMetadata(postID, item)
+		if refreshErr == nil {
+			target, media, ok = statelessOffloadTarget(refreshed, mediaNum, thumbnail, time.Now())
+		}
+
+		// Preserve the existing video-specific recovery path when the anonymous
+		// refresh failed, or when the originally selected cached media is known to
+		// be a video whose URL still needs a dedicated refresh.
+		knownVideo := item != nil && mediaNum <= len(item.Medias) && item.Medias[mediaNum-1].IsVideo()
+		if !ok && (refreshErr != nil || knownVideo) {
+			videoRefreshed, videoRefreshErr := offloadRefreshDataPreferVideo(postID)
+			if videoRefreshErr == nil {
+				target, media, ok = statelessOffloadTarget(videoRefreshed, mediaNum, thumbnail, time.Now())
+			}
+			if !ok && videoRefreshErr != nil {
+				if refreshErr == nil {
+					refreshErr = videoRefreshErr
+				} else {
+					refreshErr = errors.Join(refreshErr, videoRefreshErr)
+				}
+			}
+		}
+
+		if !ok && refreshErr != nil {
 			if fetchErr != nil {
 				refreshErr = errors.Join(fetchErr, refreshErr)
 			}
@@ -40,7 +67,6 @@ func OffloadStateless(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "media temporarily unavailable", http.StatusBadGateway)
 			return
 		}
-		target, media, ok = statelessOffloadTarget(refreshed, mediaNum, thumbnail, time.Now())
 	}
 	if !ok {
 		http.Error(w, "media URL unavailable", http.StatusNotFound)
